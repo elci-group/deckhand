@@ -1,4 +1,5 @@
 /target
 .deckhand-state
+.kaptaind
 *.log
 .DS_Store

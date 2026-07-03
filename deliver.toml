@@ -24,16 +24,6 @@ path = "deliver.toml"
 required = true
 
 [[file]]
-path = "assets/logo.png"
-required = true
-min_size_bytes = 1000
-
-[[file]]
-path = "assets/logo-wide.png"
-required = true
-min_size_bytes = 1000
-
-[[file]]
 path = "docs/branding.md"
 required = true
 
@@ -58,3 +48,10 @@ name = "deckhand status"
 cmd = ["cargo", "run", "--", "status"]
 expect_exit = 0
 timeout_secs = 60
+
+[[command]]
+name = "validate logo assets"
+cmd = ["file", "assets/logo.png", "assets/logo-wide.png", "assets/favicon.png"]
+expect_exit = 0
+timeout_secs = 10
+stdout_contains = ["PNG image data", "PNG image data"]
