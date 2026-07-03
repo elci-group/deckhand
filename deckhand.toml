@@ -1,0 +1,19 @@
+# Deckhand configuration
+# See https://github.com/elci-group/deckhand
+
+[workspace]
+path = "."
+members = "auto"          # "auto", "all", or ["crate-a", "crate-b"]
+
+[clean]
+profiles = ["debug", "release"]
+keep_incremental = false
+keep_days = 0             # 0 = no age filter
+
+[sweep]
+registry_cache = true
+git_checkouts = true
+keep_registry_days = 30
+
+[status]
+warn_free_percent = 10

@@ -1,0 +1,26 @@
+[package]
+name = "deckhand"
+version = "0.1.0"
+edition = "2021"
+authors = ["Elci Group <deckhand@example.com>"]
+description = "Deterministic build-surface maintenance and hygiene agent for Cargo workspaces"
+license = "MIT"
+repository = "https://github.com/elci-group/deckhand"
+rust-version = "1.74"
+
+[[bin]]
+name = "deckhand"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+chrono = { version = "0.4", features = ["clock"] }
+clap = { version = "4", features = ["derive"] }
+colored = "3.1.1"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+walkdir = "2"
+
+[dev-dependencies]
+tempfile = "3"

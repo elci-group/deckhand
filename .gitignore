@@ -1,0 +1,4 @@
+/target
+.deckhand-state
+*.log
+.DS_Store

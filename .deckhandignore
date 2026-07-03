@@ -1,0 +1,5 @@
+# Files and directories Deckhand should ignore during discovery
+node_modules
+.git
+target
+*.log

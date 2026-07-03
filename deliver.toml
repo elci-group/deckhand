@@ -1,0 +1,42 @@
+[[file]]
+path = "Cargo.toml"
+required = true
+
+[[file]]
+path = "src/main.rs"
+required = true
+forbid_regex = ["TODO", "FIXME", "unimplemented!", "panic!"]
+
+[[file]]
+path = "src/lib.rs"
+required = true
+
+[[file]]
+path = "README.md"
+required = true
+
+[[file]]
+path = "install.sh"
+required = true
+
+[[file]]
+path = "deliver.toml"
+required = true
+
+[[command]]
+name = "cargo check"
+cmd = ["cargo", "check"]
+expect_exit = 0
+timeout_secs = 300
+
+[[command]]
+name = "cargo test"
+cmd = ["cargo", "test"]
+expect_exit = 0
+timeout_secs = 300
+
+[[command]]
+name = "deckhand status"
+cmd = ["cargo", "run", "--", "status"]
+expect_exit = 0
+timeout_secs = 60
