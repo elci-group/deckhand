@@ -10,6 +10,7 @@ use crate::build_system::{run_native, BuildSystem, CleanContext, CleanResult, Pa
 use crate::fmt;
 
 #[derive(Debug, Default, Deserialize)]
+#[allow(dead_code)]
 struct PackageJson {
     name: Option<String>,
     scripts: Option<HashMap<String, String>>,
