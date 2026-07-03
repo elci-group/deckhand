@@ -1,6 +1,6 @@
 [package]
 name = "deckhand"
-version = "0.9.9"
+version = "0.9.10"
 edition = "2021"
 authors = ["Elci Group <deckhand@example.com>"]
 description = "Deterministic build-surface maintenance and hygiene agent for Cargo workspaces"

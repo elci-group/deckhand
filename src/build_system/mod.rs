@@ -165,7 +165,7 @@ pub fn remove_dirs(dirs: &[PathBuf], dry_run: bool) -> Result<u64> {
 }
 
 fn is_excluded_dir(name: &str, exclude: &[&str]) -> bool {
-    exclude.iter().any(|e| *e == name)
+    exclude.contains(&name)
 }
 
 /// Collect directories matching a set of top-level names and recursive directory-name searches.

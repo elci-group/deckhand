@@ -49,10 +49,8 @@ impl Node {
             Some("yarn")
         } else if root.join("bun.lockb").exists() || root.join("bun.lock").exists() {
             Some("bun")
-        } else if root.join("package-lock.json").exists() {
-            Some("npm")
         } else {
-            Some("npm") // default
+            Some("npm") // default (also package-lock.json)
         }
     }
 
