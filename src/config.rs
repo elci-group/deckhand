@@ -5,7 +5,7 @@ use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Config {
     #[serde(default)]
     pub workspace: WorkspaceConfig,
@@ -118,17 +118,6 @@ pub struct SweepConfig {
 pub struct StatusConfig {
     #[serde(default = "default_ten")]
     pub warn_free_percent: u64,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            workspace: WorkspaceConfig::default(),
-            clean: CleanConfig::default(),
-            sweep: SweepConfig::default(),
-            status: StatusConfig::default(),
-        }
-    }
 }
 
 impl Default for WorkspaceConfig {
