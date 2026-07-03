@@ -90,6 +90,15 @@ pub struct CleanConfig {
     pub keep_incremental: bool,
     #[serde(default)]
     pub keep_days: u64,
+    /// Enabled language drivers. Missing key defaults to Cargo-only for backward compatibility.
+    #[serde(default = "default_clean_languages")]
+    pub languages: Vec<String>,
+    #[serde(default = "default_true")]
+    pub allow_native_commands: bool,
+    #[serde(default = "default_false")]
+    pub remove_node_modules: bool,
+    #[serde(default = "default_false")]
+    pub remove_venvs: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,6 +109,14 @@ pub struct SweepConfig {
     pub git_checkouts: bool,
     #[serde(default = "default_thirty")]
     pub keep_registry_days: u64,
+    #[serde(default = "default_false")]
+    pub node_modules: bool,
+    #[serde(default = "default_true")]
+    pub python_bytecode: bool,
+    #[serde(default = "default_false")]
+    pub go_build_cache: bool,
+    #[serde(default = "default_false")]
+    pub swift_derived_data: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,6 +151,10 @@ impl Default for CleanConfig {
             profiles: default_profiles(),
             keep_incremental: false,
             keep_days: 0,
+            languages: default_clean_languages_all(),
+            allow_native_commands: true,
+            remove_node_modules: false,
+            remove_venvs: false,
         }
     }
 }
@@ -144,6 +165,10 @@ impl Default for SweepConfig {
             registry_cache: true,
             git_checkouts: true,
             keep_registry_days: 30,
+            node_modules: false,
+            python_bytecode: true,
+            go_build_cache: false,
+            swift_derived_data: false,
         }
     }
 }
@@ -178,6 +203,22 @@ fn default_thirty() -> u64 {
 
 fn default_ten() -> u64 {
     10
+}
+
+fn default_clean_languages() -> Vec<String> {
+    // Backward-compatible default when the key is missing from an existing config file.
+    vec!["cargo".to_string()]
+}
+
+fn default_clean_languages_all() -> Vec<String> {
+    vec![
+        "cargo".to_string(),
+        "node".to_string(),
+        "python".to_string(),
+        "go".to_string(),
+        "swift".to_string(),
+        "gradle".to_string(),
+    ]
 }
 
 impl Config {
