@@ -25,16 +25,11 @@ pub struct WorkspaceConfig {
     pub members: MemberSpec,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub enum MemberSpec {
+    #[default]
     Auto,
     List(Vec<String>),
-}
-
-impl Default for MemberSpec {
-    fn default() -> Self {
-        MemberSpec::Auto
-    }
 }
 
 impl MemberSpec {
