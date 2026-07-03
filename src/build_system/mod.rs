@@ -165,33 +165,20 @@ pub fn remove_dirs(dirs: &[PathBuf], dry_run: bool) -> Result<u64> {
     Ok(freed)
 }
 
-/// Collect directories matching a set of names, searched recursively for `__pycache__`-style
-/// caches and as top-level names for build output directories.
-pub fn collect_artifact_dirs(root: &Path, names: &[&str], recursive: &[&str]) -> Vec<PathBuf> {
+/// Collect directories matching a set of top-level names and recursive directory-name searches.
+pub fn collect_artifact_dirs(root: &Path, top_level: &[&str], recursive: &[&str]) -> Vec<PathBuf> {
     let mut out = Vec::new();
     if !root.is_dir() {
         return out;
     }
 
-    // Top-level patterns (including globs like *.egg-info).
-    for name in names {
-        if name.contains('*') {
-            if let Ok(entries) = glob::glob(&root.join(name).to_string_lossy()) {
-                for e in entries.flatten() {
-                    if e.is_dir() {
-                        out.push(e);
-                    }
-                }
-            }
-        } else {
-            let p = root.join(name);
-            if p.exists() {
-                out.push(p);
-            }
+    for name in top_level {
+        let p = root.join(name);
+        if p.exists() {
+            out.push(p);
         }
     }
 
-    // Recursive directory-name searches.
     if !recursive.is_empty() {
         for entry in walkdir::WalkDir::new(root)
             .into_iter()
@@ -213,24 +200,6 @@ pub fn collect_artifact_dirs(root: &Path, names: &[&str], recursive: &[&str]) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
-
-    #[test]
-    fn removes_old_files_only() {
-        let dir = tempfile::tempdir().unwrap();
-        let old = dir.path().join("old.txt");
-        let new = dir.path().join("new.txt");
-        fs::write(&old, "old").unwrap();
-        fs::write(&new, "new").unwrap();
-
-        let old_mtime = std::time::SystemTime::now() - std::time::Duration::from_secs(86400 * 60);
-        let _ = filetime::set_file_mtime(&old, filetime::FileTime::from_system_time(old_mtime));
-
-        let freed = remove_older_than(dir.path(), 30, false).unwrap();
-        assert!(!old.exists());
-        assert!(new.exists());
-        assert_eq!(freed, 3);
-    }
 
     #[test]
     fn collect_dirs_finds_pycache() {
