@@ -85,12 +85,13 @@ fn print_result(project: &workspace::Project, result: &CleanResult, dry_run: boo
         );
     } else {
         for dir in &result.removed_dirs {
+            let size = fmt::dir_size(dir).unwrap_or(0);
             println!(
                 "  {} {} {} {}",
                 project.name.cyan(),
                 action,
                 dir.display(),
-                format!("({})", fmt::human_size(result.bytes_freed)).dimmed()
+                format!("({})", fmt::human_size(size)).dimmed()
             );
         }
     }
