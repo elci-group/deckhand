@@ -52,6 +52,7 @@ impl BuildSystem for Python {
             root,
             &["dist", "build", ".pytest_cache", ".mypy_cache", ".ruff_cache", "htmlcov", ".tox"],
             &["__pycache__"],
+            &[".venv", "venv", ".env", "env", "virtualenv"],
         );
         dirs.extend(self.egg_info_dirs(root));
         dirs.sort();

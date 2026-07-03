@@ -164,8 +164,18 @@ pub fn remove_dirs(dirs: &[PathBuf], dry_run: bool) -> Result<u64> {
     Ok(freed)
 }
 
+fn is_excluded_dir(name: &str, exclude: &[&str]) -> bool {
+    exclude.iter().any(|e| *e == name)
+}
+
 /// Collect directories matching a set of top-level names and recursive directory-name searches.
-pub fn collect_artifact_dirs(root: &Path, top_level: &[&str], recursive: &[&str]) -> Vec<PathBuf> {
+/// Directories listed in `exclude` are pruned from recursion and never returned.
+pub fn collect_artifact_dirs(
+    root: &Path,
+    top_level: &[&str],
+    recursive: &[&str],
+    exclude: &[&str],
+) -> Vec<PathBuf> {
     let mut out = Vec::new();
     if !root.is_dir() {
         return out;
@@ -173,17 +183,29 @@ pub fn collect_artifact_dirs(root: &Path, top_level: &[&str], recursive: &[&str]
 
     for name in top_level {
         let p = root.join(name);
-        if p.exists() {
+        if p.exists() && !is_excluded_dir(name, exclude) {
             out.push(p);
         }
     }
 
     if !recursive.is_empty() {
-        for entry in walkdir::WalkDir::new(root)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_dir())
-        {
+        let walker = walkdir::WalkDir::new(root).into_iter();
+        for entry in walker.filter_entry(|e| {
+            if e.depth() == 0 {
+                return true;
+            }
+            !is_excluded_dir(
+                &e.file_name().to_string_lossy(),
+                exclude,
+            )
+        }) {
+            let entry = match entry {
+                Ok(e) => e,
+                Err(_) => continue,
+            };
+            if !entry.file_type().is_dir() {
+                continue;
+            }
             let name = entry.file_name().to_string_lossy();
             if recursive.iter().any(|r| *r == name.as_ref()) {
                 out.push(entry.path().to_path_buf());
@@ -205,7 +227,21 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let pycache = dir.path().join("src").join("__pycache__");
         fs::create_dir_all(&pycache).unwrap();
-        let found = collect_artifact_dirs(dir.path(), &[], &["__pycache__"]);
+        let found = collect_artifact_dirs(dir.path(), &[], &["__pycache__"], &[]);
         assert!(found.contains(&pycache));
+    }
+
+    #[test]
+    fn collect_dirs_skips_excluded() {
+        let dir = tempfile::tempdir().unwrap();
+        let venv_pycache = dir
+            .path()
+            .join(".venv")
+            .join("lib")
+            .join("site-packages")
+            .join("__pycache__");
+        fs::create_dir_all(&venv_pycache).unwrap();
+        let found = collect_artifact_dirs(dir.path(), &[], &["__pycache__"], &[".venv"]);
+        assert!(!found.contains(&venv_pycache));
     }
 }
