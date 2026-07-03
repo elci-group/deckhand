@@ -1,0 +1,12 @@
+2026-07-03T16:33:54.790073Z  INFO kaptaind: Starting kaptaind
+2026-07-03T16:33:54.790116Z  INFO kaptaind: Watching repository at: /home/sal/deckhand/
+2026-07-03T16:33:54.805963Z  INFO kaptaind::daemon::runtime: capability network_push is disabled
+2026-07-03T16:33:54.805975Z  INFO kaptaind::daemon::runtime: capability network_webhooks is disabled
+2026-07-03T16:33:54.805978Z  INFO kaptaind::daemon::runtime: capability network_inference is disabled
+2026-07-03T16:33:54.805980Z  INFO kaptaind::daemon::runtime: capability bundle_scoring is disabled
+2026-07-03T16:33:54.805981Z  INFO kaptaind::daemon::runtime: capability external_plugins is disabled
+2026-07-03T16:33:54.815333Z  INFO kaptaind::angler::git_hooks: Installed 7 git hooks
+2026-07-03T16:33:54.815370Z  INFO kaptaind::angler: Git hooks installed successfully
+2026-07-03T16:33:54.815378Z  INFO kaptaind::daemon::scheduler: Angler system initialized
+2026-07-03T17:11:32.034681Z  INFO kaptaind::daemon::scheduler: cluster window expired by timeout cluster_id=e7c133c5-0b9f-4c1a-a22a-59c68e032d00
+2026-07-03T17:11:32.210997Z  INFO kaptaind::daemon::scheduler: Token usage and cost tracking input_tokens=6590 output_tokens=34 marginal_cost=0.003346 aggregate_cost=0.003346
