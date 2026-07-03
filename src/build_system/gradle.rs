@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result};
+use colored::*;
 
 use crate::build_system::{run_native, BuildSystem, CleanContext, CleanResult, Partition};
 use crate::fmt;
@@ -67,14 +68,28 @@ impl BuildSystem for Gradle {
             let (program, _) = self.gradle_cmd(root);
             let mut cmd = Command::new(&program);
             cmd.arg("clean").current_dir(root);
-            let output = run_native(&mut cmd, 300)
-                .with_context(|| format!("gradle clean failed for {}", root.display()))?;
-            if !output.status.success() {
-                anyhow::bail!(
-                    "gradle clean failed for {}: {}",
-                    root.display(),
-                    String::from_utf8_lossy(&output.stderr)
-                );
+            match run_native(&mut cmd, 300) {
+                Ok(output) if output.status.success() => {}
+                Ok(output) => {
+                    // Some Gradle projects (e.g. JetBrains plugins) do not apply
+                    // the base plugin and therefore have no `clean` task. Fall back
+                    // to manual deletion and surface the failure as a warning.
+                    let stderr = String::from_utf8_lossy(&output.stderr);
+                    eprintln!(
+                        "  {} gradle clean failed for {}: {} (falling back to manual removal)",
+                        "warning:".yellow().bold(),
+                        root.display(),
+                        stderr.lines().next().unwrap_or("unknown error")
+                    );
+                }
+                Err(e) => {
+                    eprintln!(
+                        "  {} could not run gradle clean for {}: {} (falling back to manual removal)",
+                        "warning:".yellow().bold(),
+                        root.display(),
+                        e
+                    );
+                }
             }
         }
 
