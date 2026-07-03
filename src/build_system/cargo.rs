@@ -47,8 +47,7 @@ impl BuildSystem for Cargo {
             let mut cmd = Command::new("cargo");
             cmd.arg("clean")
                 .arg("--manifest-path")
-                .arg(&manifest)
-                .current_dir(root);
+                .arg(&manifest);
             if let Some(profile) = &ctx.profile {
                 if profile != "all" {
                     cmd.arg("--profile").arg(profile);
