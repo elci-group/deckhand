@@ -1,12 +1,12 @@
+use std::path::Path;
+
+use anyhow::Result;
+use colored::*;
+
+use crate::build_system::{CleanContext, CleanResult};
 use crate::config::Config;
 use crate::fmt;
-use crate::workspace::{self, Member};
-use anyhow::{Context, Result};
-use chrono::{Local, TimeDelta};
-use colored::*;
-use std::fs;
-use std::path::Path;
-use std::process::Command;
+use crate::workspace;
 
 pub fn run(
     cfg: &Config,
@@ -15,8 +15,7 @@ pub fn run(
     older_than: Option<u64>,
     target_dir: Option<&Path>,
 ) -> Result<()> {
-    let ws = workspace::discover(&cfg.workspace.path)?;
-    let targets = build_target_list(&ws, target_dir)?;
+    let ws = workspace::discover(&cfg.workspace.path, &cfg.clean.languages)?;
 
     fmt::banner("Deckhand: clean");
     println!("Workspace root: {}", ws.root.display());
@@ -29,109 +28,70 @@ pub fn run(
     }
     println!();
 
-    for member in &ws.members {
-        clean_member(member, profile, dry_run, older_than, target_dir)?;
-    }
+    let ctx = CleanContext {
+        dry_run,
+        keep_days: older_than.unwrap_or(cfg.clean.keep_days),
+        profile: Some(profile.to_string()),
+        target_dir: target_dir.map(Path::to_path_buf),
+        allow_native_commands: cfg.clean.allow_native_commands,
+        remove_node_modules: cfg.clean.remove_node_modules,
+        remove_venvs: cfg.clean.remove_venvs,
+        remove_go_build_cache: cfg.sweep.go_build_cache,
+        remove_swift_derived_data: cfg.sweep.swift_derived_data,
+    };
 
-    if targets.iter().any(|t| t.exists()) {
-        println!();
-    }
-
-    Ok(())
-}
-
-fn clean_member(
-    member: &Member,
-    profile: &str,
-    dry_run: bool,
-    older_than: Option<u64>,
-    target_dir: Option<&Path>,
-) -> Result<()> {
-    let dir = target_dir.map(|p| member.path.join(p)).unwrap_or_else(|| member.path.join("target"));
-
-    if !dir.exists() {
-        return Ok(());
-    }
-
-    if let Some(days) = older_than {
-        let cutoff = Local::now() - TimeDelta::days(days as i64);
-        let removed = remove_older_than(&dir, cutoff, dry_run)?;
-        let action = if dry_run { "would remove" } else { "removed" };
-        println!(
-            "  {} {} old artifact(s) from {}",
-            action,
-            removed.to_string().bold(),
-            dir.display()
-        );
-        return Ok(());
-    }
-
-    if dry_run {
-        let size = fmt::human_size(fmt::dir_size(&dir)?);
-        println!(
-            "  {} would clean {} {}",
-            member.name.cyan(),
-            dir.display(),
-            format!("({})", size).dimmed()
-        );
-        return Ok(());
-    }
-
-    let mut cmd = Command::new("cargo");
-    cmd.arg("clean");
-    cmd.arg("--manifest-path").arg(member.path.join("Cargo.toml"));
-    if profile != "all" {
-        cmd.arg("--profile").arg(profile);
-    }
-    if let Some(td) = target_dir {
-        cmd.arg("--target-dir").arg(td);
-    }
-
-    let output = cmd.output().with_context(|| "failed to run cargo clean")?;
-    if !output.status.success() {
-        anyhow::bail!(
-            "cargo clean failed for {}:\n{}",
-            member.name,
-            String::from_utf8_lossy(&output.stderr)
-        );
-    }
-
-    println!("  {} cleaned {}", member.name.green(), dir.display());
-    Ok(())
-}
-
-fn build_target_list(
-    ws: &workspace::Workspace,
-    target_dir: Option<&Path>,
-) -> Result<Vec<std::path::PathBuf>> {
-    let mut targets = Vec::new();
-    for member in &ws.members {
-        let t = target_dir
-            .map(|p| member.path.join(p))
-            .unwrap_or_else(|| member.path.join("target"));
-        targets.push(t);
-    }
-    Ok(targets)
-}
-
-fn remove_older_than(dir: &Path, cutoff: chrono::DateTime<Local>, dry_run: bool) -> Result<usize> {
-    let mut removed = 0;
-    for entry in walkdir::WalkDir::new(dir)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-    {
-        let meta = entry.metadata()?;
-        let mtime = meta.modified()?;
-        let dt = chrono::DateTime::<Local>::from(mtime);
-        if dt < cutoff {
-            if dry_run {
-                removed += 1;
-            } else {
-                fs::remove_file(entry.path())?;
-                removed += 1;
+    let mut total_freed = 0u64;
+    for project in &ws.projects {
+        match project.system.clean(&project.path, &ctx) {
+            Ok(result) => {
+                total_freed += result.bytes_freed;
+                print_result(project, &result, dry_run);
+            }
+            Err(e) => {
+                eprintln!(
+                    "  {} {}: {}",
+                    "error".red().bold(),
+                    project.name,
+                    e
+                );
             }
         }
     }
-    Ok(removed)
+
+    if ws.projects.len() > 1 || total_freed > 0 {
+        println!();
+        println!(
+            "Total freed: {}",
+            fmt::human_size(total_freed).green().bold()
+        );
+    }
+
+    Ok(())
+}
+
+fn print_result(project: &workspace::Project, result: &CleanResult, dry_run: bool) {
+    let action = if dry_run { "would clean" } else { "cleaned" };
+    if result.removed_dirs.is_empty() && result.bytes_freed == 0 {
+        println!("  {} nothing to clean", project.name.cyan());
+        return;
+    }
+
+    if result.removed_dirs.is_empty() {
+        println!(
+            "  {} {} ({})",
+            project.name.cyan(),
+            action,
+            fmt::human_size(result.bytes_freed).green()
+        );
+    } else {
+        for dir in &result.removed_dirs {
+            println!(
+                "  {} {} {} {}",
+                project.name.cyan(),
+                action,
+                dir.display(),
+                format!("({})", fmt::human_size(result.bytes_freed)).dimmed()
+            );
+        }
+    }
 }

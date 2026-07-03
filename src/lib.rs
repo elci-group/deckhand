@@ -1,3 +1,4 @@
+pub mod build_system;
 pub mod clean;
 pub mod config;
 pub mod fmt;
@@ -29,6 +30,7 @@ mod tests {
         assert!(cfg.clean.profiles.contains(&"debug".to_string()));
         assert!(cfg.sweep.registry_cache);
         assert_eq!(cfg.status.warn_free_percent, 10);
+        assert!(cfg.clean.languages.contains(&"node".to_string()));
     }
 
     #[test]
@@ -55,6 +57,8 @@ profiles = ["release"]
             _ => panic!("expected member list"),
         }
         assert_eq!(cfg.clean.profiles, vec!["release".to_string()]);
+        // Missing languages key should default to cargo-only.
+        assert_eq!(cfg.clean.languages, vec!["cargo".to_string()]);
     }
 
     #[test]
@@ -70,9 +74,9 @@ version = "0.1.0"
         )
         .unwrap();
 
-        let ws = workspace::discover(dir.path()).unwrap();
-        assert_eq!(ws.members.len(), 1);
-        assert_eq!(ws.members[0].name, "solo");
+        let ws = workspace::discover(dir.path(), &config::CleanConfig::default().languages).unwrap();
+        assert_eq!(ws.projects.len(), 1);
+        assert_eq!(ws.projects[0].name, "solo");
     }
 
     #[test]
@@ -101,9 +105,23 @@ members = ["crates/*"]
         )
         .unwrap();
 
-        let ws = workspace::discover(dir.path()).unwrap();
-        let names: Vec<_> = ws.members.iter().map(|m| m.name.clone()).collect();
+        let ws = workspace::discover(dir.path(), &config::CleanConfig::default().languages).unwrap();
+        let names: Vec<_> = ws.projects.iter().map(|m| m.name.clone()).collect();
         assert!(names.contains(&"a".to_string()));
         assert!(names.contains(&"b".to_string()));
+    }
+
+    #[test]
+    fn detects_mixed_build_systems() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("Cargo.toml"), "[package]\nname = \"mixed\"\n").unwrap();
+        std::fs::write(dir.path().join("package.json"), "{}").unwrap();
+        std::fs::write(dir.path().join("pyproject.toml"), "").unwrap();
+
+        let ws = workspace::discover(dir.path(), &config::CleanConfig::default().languages).unwrap();
+        let names: Vec<_> = ws.projects.iter().map(|p| p.system.name()).collect();
+        assert!(names.contains(&"cargo"));
+        assert!(names.contains(&"node"));
+        assert!(names.contains(&"python"));
     }
 }

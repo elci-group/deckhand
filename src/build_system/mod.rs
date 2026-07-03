@@ -1,6 +1,5 @@
 use anyhow::{Context, Result};
 use chrono::{Local, TimeDelta};
-use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -61,7 +60,7 @@ pub struct Partition {
 }
 
 /// Every language/build-system that Deckhand can clean implements this trait.
-pub trait BuildSystem: Send + Sync + fmt::Debug {
+pub trait BuildSystem: Send + Sync + std::fmt::Debug {
     fn name(&self) -> &'static str;
     fn detect(&self, root: &Path) -> bool;
     /// Return absolute artifact paths that exist for this project root.
@@ -92,7 +91,7 @@ pub fn enabled_systems(language_names: &[String]) -> Vec<Box<dyn BuildSystem>> {
 
 /// Run a native command with a timeout, returning its output.
 pub fn run_native(cmd: &mut Command, timeout_secs: u64) -> Result<std::process::Output> {
-    let mut child = cmd
+    let child = cmd
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()

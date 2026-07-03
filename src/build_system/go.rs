@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 
 use crate::build_system::{run_native, BuildSystem, CleanContext, CleanResult, Partition};
 use crate::fmt;

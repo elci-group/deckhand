@@ -103,7 +103,7 @@ impl BuildSystem for Cargo {
         if target.exists() {
             let name = if root.join("Cargo.toml").exists() {
                 format!(
-                    "cargo target ({}",
+                    "cargo target ({})",
                     root.file_name()
                         .unwrap_or_default()
                         .to_string_lossy()

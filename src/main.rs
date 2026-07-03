@@ -7,9 +7,9 @@ use std::path::PathBuf;
 #[command(
     name = "deckhand",
     version,
-    about = "Deterministic build-surface maintenance for Cargo workspaces",
-    long_about = "Deckhand keeps Cargo workspaces clean and navigable. \
-It is the operational-hygiene counterpart to version-management tools like kaptaind."
+    about = "Deterministic multi-language build-surface maintenance",
+    long_about = "Deckhand keeps build artifacts clean across Cargo, Node, Python, Go, Swift, \
+and Gradle projects. It is the operational-hygiene counterpart to version-management tools like kaptaind."
 )]
 struct Cli {
     #[command(subcommand)]

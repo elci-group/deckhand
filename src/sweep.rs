@@ -1,12 +1,15 @@
-use crate::config::Config;
-use crate::fmt;
-use crate::workspace;
-use anyhow::{Context, Result};
-use chrono::{Local, TimeDelta};
-use colored::*;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
+
+use anyhow::{Context, Result};
+use chrono::{Local, TimeDelta};
+use colored::*;
+
+use crate::build_system::CleanContext;
+use crate::config::Config;
+use crate::fmt;
+use crate::workspace;
 
 pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<()> {
     fmt::banner("Deckhand: sweep");
@@ -16,23 +19,72 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<(
     }
     println!();
 
-    // Workspace target directories
-    let ws = workspace::discover(path).ok();
+    let ctx = CleanContext {
+        dry_run,
+        keep_days,
+        allow_native_commands: cfg.clean.allow_native_commands,
+        remove_node_modules: cfg.sweep.node_modules,
+        remove_venvs: false,
+        remove_go_build_cache: cfg.sweep.go_build_cache,
+        remove_swift_derived_data: cfg.sweep.swift_derived_data,
+        ..Default::default()
+    };
+
+    // Discover projects using the configured languages.
+    let ws = workspace::discover(path, &cfg.clean.languages).ok();
+
     if let Some(ref ws) = ws {
-        for member in &ws.members {
-            let target = member.path.join("target");
-            if target.exists() {
-                let before = fmt::dir_size(&target)?;
-                sweep_dir(&target, keep_days, dry_run)?;
-                let after = if dry_run { before } else { fmt::dir_size(&target)? };
-                let freed = before.saturating_sub(after);
-                println!(
-                    "  {} {} → {} (freed {})",
-                    member.name.cyan(),
-                    fmt::human_size(before),
-                    fmt::human_size(after),
-                    fmt::human_size(freed).green()
-                );
+        for project in &ws.projects {
+            let artifacts = project.system.artifacts(&project.path);
+            for artifact in artifacts {
+                let name = artifact
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+
+                // Cargo caches are handled separately below.
+                if project.system.name() == "cargo" {
+                    let before = fmt::dir_size(&artifact)?;
+                    sweep_dir(&artifact, keep_days, dry_run)?;
+                    let after = if dry_run { before } else { fmt::dir_size(&artifact)? };
+                    let freed = before.saturating_sub(after);
+                    println!(
+                        "  {} {} → {} (freed {})",
+                        project.name.cyan(),
+                        fmt::human_size(before),
+                        fmt::human_size(after),
+                        fmt::human_size(freed).green()
+                    );
+                    continue;
+                }
+
+                // Python bytecode sweeping respects the config flag.
+                if project.system.name() == "python" && !cfg.sweep.python_bytecode {
+                    continue;
+                }
+
+                // Node modules sweeping respects the config flag.
+                if name == "node_modules" && !cfg.sweep.node_modules {
+                    continue;
+                }
+
+                if artifact.exists() {
+                    let before = fmt::dir_size(&artifact)?;
+                    let _ = project
+                        .system
+                        .clean(&project.path, &ctx)
+                        .map_err(|e| eprintln!("  error cleaning {}: {}", project.name, e));
+                    let after = if dry_run { before } else { fmt::dir_size(&artifact).unwrap_or(0) };
+                    let freed = before.saturating_sub(after);
+                    println!(
+                        "  {} {} → {} (freed {})",
+                        format!("{} {}", project.name, name).cyan(),
+                        fmt::human_size(before),
+                        fmt::human_size(after),
+                        fmt::human_size(freed).green()
+                    );
+                }
             }
         }
     }

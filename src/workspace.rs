@@ -1,8 +1,12 @@
-use anyhow::{Context, Result};
-use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use anyhow::{Context, Result};
+use serde::Deserialize;
+
+use crate::build_system::{self, BuildSystem};
 
 #[derive(Debug, Default, Deserialize)]
 struct CargoManifest {
@@ -22,18 +26,86 @@ struct PackageTable {
 
 pub struct Workspace {
     pub root: PathBuf,
-    pub members: Vec<Member>,
+    pub projects: Vec<Project>,
 }
 
-pub struct Member {
+pub struct Project {
     pub name: String,
     pub path: PathBuf,
+    pub system: Arc<dyn BuildSystem>,
 }
 
-pub fn discover(root: &Path) -> Result<Workspace> {
+impl Workspace {
+    /// True if the workspace contains more than one distinct project path.
+    pub fn is_multi_project(&self) -> bool {
+        let mut paths = HashSet::new();
+        for p in &self.projects {
+            paths.insert(&p.path);
+        }
+        paths.len() > 1
+    }
+}
+
+/// Discover build systems in `root`. Cargo workspace members are expanded;
+/// other build systems are reported at the root level.
+pub fn discover(root: &Path, language_names: &[String]) -> Result<Workspace> {
+    let mut projects = Vec::new();
+
+    for system in build_system::enabled_systems(language_names) {
+        if !system.detect(root) {
+            continue;
+        }
+
+        if system.name() == "cargo" {
+            let members = discover_cargo_members(root)?;
+            for member in members {
+                projects.push(Project {
+                    name: member.name,
+                    path: member.path,
+                    system: Arc::new(build_system::cargo::Cargo),
+                });
+            }
+        } else {
+            let name = root
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string();
+            projects.push(Project {
+                name,
+                path: root.to_path_buf(),
+                system: Arc::from(system),
+            });
+        }
+    }
+
+    if projects.is_empty() {
+        anyhow::bail!(
+            "no supported build system detected in {} (enabled languages: {:?})",
+            root.display(),
+            language_names
+        );
+    }
+
+    Ok(Workspace {
+        root: root.to_path_buf(),
+        projects,
+    })
+}
+
+#[derive(Debug)]
+struct CargoMember {
+    name: String,
+    path: PathBuf,
+}
+
+fn discover_cargo_members(root: &Path) -> Result<Vec<CargoMember>> {
     let manifest_path = root.join("Cargo.toml");
+    if !manifest_path.exists() {
+        return Ok(vec![]);
+    }
     let text = fs::read_to_string(&manifest_path)
-        .with_context(|| format!("no Cargo.toml at {}", manifest_path.display()))?;
+        .with_context(|| format!("failed to read {}", manifest_path.display()))?;
     let manifest: CargoManifest = toml::from_str(&text)
         .with_context(|| format!("failed to parse {}", manifest_path.display()))?;
 
@@ -50,7 +122,7 @@ pub fn discover(root: &Path) -> Result<Workspace> {
                         let name = package_name(&entry).unwrap_or_else(|| {
                             entry.file_name().unwrap_or_default().to_string_lossy().into()
                         });
-                        members.push(Member { name, path: entry });
+                        members.push(CargoMember { name, path: entry });
                     }
                 }
             }
@@ -60,16 +132,13 @@ pub fn discover(root: &Path) -> Result<Workspace> {
     // If no workspace members found, treat the root as a single package.
     if members.is_empty() {
         let name = package_name(root).unwrap_or_else(|| "root".to_string());
-        members.push(Member {
+        members.push(CargoMember {
             name,
             path: root.to_path_buf(),
         });
     }
 
-    Ok(Workspace {
-        root: root.to_path_buf(),
-        members,
-    })
+    Ok(members)
 }
 
 fn glob_dirs(pattern: &Path) -> Result<Vec<PathBuf>> {
@@ -120,6 +189,6 @@ fn package_name(path: &Path) -> Option<String> {
     manifest.package?.name
 }
 
-pub fn target_dir(member: &Member) -> PathBuf {
-    member.path.join("target")
+pub fn target_dir(member_path: &Path) -> PathBuf {
+    member_path.join("target")
 }

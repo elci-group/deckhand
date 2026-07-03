@@ -1,10 +1,12 @@
-use crate::config::Config;
-use crate::fmt;
-use crate::workspace;
+use std::path::{Path, PathBuf};
+
 use anyhow::Result;
 use colored::*;
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+
+use crate::config::Config;
+use crate::fmt;
+use crate::workspace;
 
 #[derive(Serialize)]
 struct StatusReport {
@@ -29,23 +31,25 @@ struct ArtifactReport {
 }
 
 pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<()> {
-    let ws = workspace::discover(&cfg.workspace.path)?;
+    let ws = workspace::discover(&cfg.workspace.path, &cfg.clean.languages)?;
     let mut partitions = Vec::new();
 
-    // Workspace root target (only for real workspaces, not single-package roots)
-    let is_multi_member = ws.members.len() > 1 || (ws.members.len() == 1 && ws.members[0].path != ws.root);
-    if is_multi_member {
-        let root_target = ws.root.join("target");
-        if root_target.exists() {
-            partitions.push(report_partition("workspace target", &root_target)?);
-        }
-    }
-
-    // Member targets
-    for member in &ws.members {
-        let target = member.path.join("target");
-        if target.exists() {
-            partitions.push(report_partition(&format!("{} target", member.name), &target)?);
+    // Per-project partitions from each build system.
+    for project in &ws.projects {
+        match project.system.status_partitions(&project.path) {
+            Ok(parts) => {
+                for p in parts {
+                    partitions.push(report_partition(&p.name, &p.path)?);
+                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "  {} status failed for {}: {}",
+                    "error".red().bold(),
+                    project.name,
+                    e
+                );
+            }
         }
     }
 
@@ -86,7 +90,11 @@ pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<()> {
     println!();
     println!("{}", "Partitions:".bold());
     for p in &partitions {
-        println!("  {:30} {:>10}", format!("{}", p.name.cyan()), p.size_human.bold());
+        println!(
+            "  {:40} {:>10}",
+            format!("{}", p.name.cyan()),
+            p.size_human.bold()
+        );
     }
 
     println!();
@@ -122,24 +130,25 @@ fn find_largest_artifacts(ws: &workspace::Workspace, limit: usize) -> Vec<Artifa
     let mut artifacts: Vec<Artifact> = Vec::new();
     let mut seen = std::collections::HashSet::new();
 
-    for member in &ws.members {
-        let target = member.path.join("target");
-        if !target.exists() {
-            continue;
-        }
-        for entry in walkdir::WalkDir::new(&target)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| e.file_type().is_file())
-        {
-            let path = entry.path().to_path_buf();
-            if let Ok(meta) = entry.metadata() {
-                let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
-                if seen.insert(canonical) {
-                    artifacts.push(Artifact {
-                        path,
-                        size_bytes: meta.len(),
-                    });
+    for project in &ws.projects {
+        for dir in project.system.artifacts(&project.path) {
+            if !dir.exists() {
+                continue;
+            }
+            for entry in walkdir::WalkDir::new(&dir)
+                .into_iter()
+                .filter_map(|e| e.ok())
+                .filter(|e| e.file_type().is_file())
+            {
+                let path = entry.path().to_path_buf();
+                if let Ok(meta) = entry.metadata() {
+                    let canonical = path.canonicalize().unwrap_or_else(|_| path.clone());
+                    if seen.insert(canonical) {
+                        artifacts.push(Artifact {
+                            path,
+                            size_bytes: meta.len(),
+                        });
+                    }
                 }
             }
         }
