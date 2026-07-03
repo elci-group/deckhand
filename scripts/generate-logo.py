@@ -83,7 +83,9 @@ def draw_spinach_leaf(draw, cx, cy, w, h, angle, color):
     rotated = im.rotate(angle, resample=Image.Resampling.BICUBIC, expand=True)
     # Paste centered at cx, cy
     rw, rh = rotated.size
-    draw._image.paste(rotated, (cx - rw // 2, cy - rh // 2), rotated)
+    px = int(cx) - rw // 2
+    py = int(cy) - rh // 2
+    draw._image.paste(rotated, (px, py), rotated)
 
 
 def make_main_logo(size=512):

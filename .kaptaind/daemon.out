@@ -10,3 +10,8 @@
 2026-07-03T16:33:54.815378Z  INFO kaptaind::daemon::scheduler: Angler system initialized
 2026-07-03T17:11:32.034681Z  INFO kaptaind::daemon::scheduler: cluster window expired by timeout cluster_id=e7c133c5-0b9f-4c1a-a22a-59c68e032d00
 2026-07-03T17:11:32.210997Z  INFO kaptaind::daemon::scheduler: Token usage and cost tracking input_tokens=6590 output_tokens=34 marginal_cost=0.003346 aggregate_cost=0.003346
+2026-07-03T17:11:40.482556Z  INFO kaptaind::daemon::scheduler: cluster window expired by timeout cluster_id=0520354f-1a97-4729-8696-c67c0622963c
+2026-07-03T17:12:00.267717Z  INFO kaptaind::daemon::scheduler: cluster window expired by timeout cluster_id=0200f94b-e3c0-40be-aff2-cddc4e6214a6
+2026-07-03T17:12:06.235552Z  INFO kaptaind::daemon::scheduler: cluster window expired by timeout cluster_id=f12df2ba-3a48-43a1-872b-6851bcaab968
+2026-07-03T17:12:13.158435Z  INFO kaptaind::daemon::scheduler: cluster window expired by timeout cluster_id=92c42ab7-4028-48e8-a7f3-28bd7bd74266
+2026-07-03T17:12:19.992089Z  INFO kaptaind::daemon::scheduler: Token usage and cost tracking input_tokens=2116 output_tokens=35 marginal_cost=0.0011105000000000002 aggregate_cost=0.0044565

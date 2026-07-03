@@ -1,8 +1,13 @@
-# Deckhand
-
-Deterministic build-surface maintenance and hygiene agent for Cargo workspaces.
+<div align="center">
+  <img src="assets/logo-wide.png" alt="Deckhand logo" width="640">
+  <br><br>
+  <strong>Deterministic build-surface maintenance and hygiene agent for Cargo workspaces.</strong>
+  <br><br>
+</div>
 
 If [kaptaind] is who decides what gets shipped, **Deckhand** is what makes sure the ship is clean enough to sail.
+
+![Deckhand icon](assets/logo.png)
 
 [kaptaind]: https://github.com/elci-group/kaptaind
 

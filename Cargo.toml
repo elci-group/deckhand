@@ -1,11 +1,13 @@
 [package]
 name = "deckhand"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Elci Group <deckhand@example.com>"]
 description = "Deterministic build-surface maintenance and hygiene agent for Cargo workspaces"
+readme = "README.md"
 license = "MIT"
 repository = "https://github.com/elci-group/deckhand"
+homepage = "https://github.com/elci-group/deckhand"
 rust-version = "1.74"
 
 [[bin]]

@@ -23,6 +23,24 @@ required = true
 path = "deliver.toml"
 required = true
 
+[[file]]
+path = "assets/logo.png"
+required = true
+min_size_bytes = 1000
+
+[[file]]
+path = "assets/logo-wide.png"
+required = true
+min_size_bytes = 1000
+
+[[file]]
+path = "docs/branding.md"
+required = true
+
+[[file]]
+path = "scripts/generate-logo.py"
+required = true
+
 [[command]]
 name = "cargo check"
 cmd = ["cargo", "check"]
