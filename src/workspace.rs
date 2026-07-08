@@ -145,13 +145,13 @@ fn glob_dirs(pattern: &Path) -> Result<Vec<PathBuf>> {
     let pattern_str = pattern.to_string_lossy();
     let mut dirs = Vec::new();
     // Very small glob support: handle trailing /** and *
-    if pattern_str.ends_with("/**") {
-        let base = PathBuf::from(&pattern_str[..pattern_str.len() - 3]);
+    if let Some(stripped) = pattern_str.strip_suffix("/**") {
+        let base = PathBuf::from(stripped);
         if base.is_dir() {
             collect_crate_dirs(&base, &mut dirs)?;
         }
-    } else if pattern_str.ends_with('*') {
-        let base = PathBuf::from(&pattern_str[..pattern_str.len() - 1]);
+    } else if let Some(stripped) = pattern_str.strip_suffix('*') {
+        let base = PathBuf::from(stripped);
         if base.is_dir() {
             for entry in fs::read_dir(base)? {
                 let entry = entry?;

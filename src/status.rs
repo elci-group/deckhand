@@ -66,7 +66,7 @@ pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<()> {
     }
 
     let mut largest = find_largest_artifacts(&ws, limit.unwrap_or(10));
-    largest.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+    largest.sort_by_key(|b| std::cmp::Reverse(b.size_bytes));
 
     if json {
         let report = StatusReport {
@@ -154,7 +154,7 @@ fn find_largest_artifacts(ws: &workspace::Workspace, limit: usize) -> Vec<Artifa
         }
     }
 
-    artifacts.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+    artifacts.sort_by_key(|b| std::cmp::Reverse(b.size_bytes));
     artifacts.truncate(limit);
     artifacts
 }

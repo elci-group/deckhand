@@ -37,6 +37,9 @@ deckhand sweep
 # Dry-run any destructive command
 deckhand clean --dry-run
 deckhand sweep --dry-run
+
+# Run auto-clean automatically on user login
+deckhand auto-start install
 ```
 
 ## Supported languages
@@ -60,6 +63,8 @@ See [docs/LANGUAGES.md](docs/LANGUAGES.md) for the full manifest/artifact matrix
 | `deckhand status` | Report build artifact/cache disk usage |
 | `deckhand clean` | Run native clean commands across detected build systems |
 | `deckhand sweep` | Prune stale build artifacts and caches |
+| `deckhand auto-clean` | Clean matched projects when clutter/free-space thresholds are met |
+| `deckhand auto-start` | Install or manage a systemd user service that runs deckhand at login |
 
 ## Configuration
 
@@ -90,11 +95,52 @@ swift_derived_data = false
 
 [status]
 warn_free_percent = 10
+
+[auto_clean]
+enabled = false
+scan_paths = ["/bin", "/usr/bin", "/usr/local/bin", "~/.local/bin"]
+# clutter_tolerance = "5GB"
+# min_free_space = "10GB"
+# cooldown = "1h"
+
+# [auto_clean.projects."my-crate"]
+# cooldown = "30m"
 ```
 
 ### Backward compatibility
 
 Existing `deckhand.toml` files that do not specify `[clean].languages` continue to run only the Cargo driver, preserving previous Cargo-only behavior. New projects or configs without a `deckhand.toml` file enable all language drivers by default.
+
+## Documentation
+
+- `deckhand --help` and `deckhand <command> --help` for command-line reference.
+- `docs/deckhand.1` for the full man page.
+- `docs/LANGUAGES.md` for the supported-language manifest/artifact matrix.
+- `docs/branding.md` for project branding assets and guidelines.
+
+## Monitoring with kaptaind
+
+Deckhand is designed to work alongside [kaptaind]. When kaptaind monitors a
+repository that uses deckhand, it can analyze the working tree, gate commits on
+the `cargo test` hook, and propose semantic version bumps based on the actual
+changes. Run `kaptaind-cli analyze` to preview the impact of local changes
+before committing.
+
+## Auto-start on login
+
+`deckhand auto-start install` creates a systemd user service that runs `deckhand auto-clean` each time you log in. The service uses the `deckhand.toml` from the directory where you ran the install command (or the path passed with `--config`).
+
+```bash
+# Install the login service for the current project
+deckhand auto-start install
+
+# Install using a specific config
+deckhand auto-start install --config /path/to/deckhand.toml
+
+# Check status or remove
+deckhand auto-start status
+deckhand auto-start uninstall
+```
 
 ## License
 

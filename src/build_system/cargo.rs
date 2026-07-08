@@ -44,36 +44,43 @@ impl BuildSystem for Cargo {
         let mut bytes_freed = 0u64;
 
         if ctx.allow_native_commands && manifest.exists() {
-            let mut cmd = Command::new("cargo");
-            cmd.arg("clean")
-                .arg("--manifest-path")
-                .arg(&manifest);
-            if let Some(profile) = &ctx.profile {
-                if profile != "all" {
-                    cmd.arg("--profile").arg(profile);
-                }
-            }
-            if let Some(td) = &ctx.target_dir {
-                cmd.arg("--target-dir").arg(td);
-            }
-
-            let output = run_native(&mut cmd, 300).with_context(|| {
-                format!("cargo clean failed for {}", root.display())
-            })?;
-            if !output.status.success() {
-                anyhow::bail!(
-                    "cargo clean failed for {}: {}",
-                    root.display(),
-                    String::from_utf8_lossy(&output.stderr)
-                );
-            }
-
+            // Record the size before any clean operation so dry-run reports
+            // what would be freed without mutating the filesystem.
             if target.exists() {
-                bytes_freed += fmt::dir_size(&target).unwrap_or(0);
-                if target.read_dir()?.next().is_none() {
-                    if !ctx.dry_run {
-                        fs::remove_dir(&target)?;
+                bytes_freed += fmt::dir_size(&target)?;
+            }
+
+            if ctx.dry_run {
+                if target.exists() {
+                    removed.push(target);
+                }
+            } else {
+                let mut cmd = Command::new("cargo");
+                cmd.arg("clean")
+                    .arg("--manifest-path")
+                    .arg(&manifest);
+                if let Some(profile) = &ctx.profile {
+                    if profile != "all" {
+                        cmd.arg("--profile").arg(profile);
                     }
+                }
+                if let Some(td) = &ctx.target_dir {
+                    cmd.arg("--target-dir").arg(td);
+                }
+
+                let output = run_native(&mut cmd, 300).with_context(|| {
+                    format!("cargo clean failed for {}", root.display())
+                })?;
+                if !output.status.success() {
+                    anyhow::bail!(
+                        "cargo clean failed for {}: {}",
+                        root.display(),
+                        String::from_utf8_lossy(&output.stderr)
+                    );
+                }
+
+                if target.exists() && target.read_dir()?.next().is_none() {
+                    fs::remove_dir(&target)?;
                     removed.push(target);
                 }
             }
@@ -81,7 +88,7 @@ impl BuildSystem for Cargo {
             // Safe fallback: delete the target directory ourselves.
             for artifact in self.artifacts(root) {
                 if artifact.exists() {
-                    bytes_freed += fmt::dir_size(&artifact).unwrap_or(0);
+                    bytes_freed += fmt::dir_size(&artifact)?;
                     if !ctx.dry_run {
                         fs::remove_dir_all(&artifact)?;
                     }

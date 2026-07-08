@@ -8,6 +8,28 @@ use crate::config::Config;
 use crate::fmt;
 use crate::workspace;
 
+pub fn clean_project(
+    project: &workspace::Project,
+    cfg: &Config,
+    profile: &str,
+    dry_run: bool,
+    older_than: Option<u64>,
+    target_dir: Option<&Path>,
+) -> Result<CleanResult> {
+    let ctx = CleanContext {
+        dry_run,
+        keep_days: older_than.unwrap_or(cfg.clean.keep_days),
+        profile: Some(profile.to_string()),
+        target_dir: target_dir.map(Path::to_path_buf),
+        allow_native_commands: cfg.clean.allow_native_commands,
+        remove_node_modules: cfg.clean.remove_node_modules,
+        remove_venvs: cfg.clean.remove_venvs,
+        remove_go_build_cache: cfg.sweep.go_build_cache,
+        remove_swift_derived_data: cfg.sweep.swift_derived_data,
+    };
+    project.system.clean(&project.path, &ctx)
+}
+
 pub fn run(
     cfg: &Config,
     profile: &str,
@@ -28,21 +50,9 @@ pub fn run(
     }
     println!();
 
-    let ctx = CleanContext {
-        dry_run,
-        keep_days: older_than.unwrap_or(cfg.clean.keep_days),
-        profile: Some(profile.to_string()),
-        target_dir: target_dir.map(Path::to_path_buf),
-        allow_native_commands: cfg.clean.allow_native_commands,
-        remove_node_modules: cfg.clean.remove_node_modules,
-        remove_venvs: cfg.clean.remove_venvs,
-        remove_go_build_cache: cfg.sweep.go_build_cache,
-        remove_swift_derived_data: cfg.sweep.swift_derived_data,
-    };
-
     let mut total_freed = 0u64;
     for project in &ws.projects {
-        match project.system.clean(&project.path, &ctx) {
+        match clean_project(project, cfg, profile, dry_run, older_than, target_dir) {
             Ok(result) => {
                 total_freed += result.bytes_freed;
                 print_result(project, &result, dry_run);

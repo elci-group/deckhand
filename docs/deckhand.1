@@ -1,0 +1,221 @@
+.TH DECKHAND 1 "July 2026" "deckhand 0.9.13" "User Commands"
+.SH NAME
+deckhand \- deterministic multi-language build-surface maintenance and hygiene agent
+.SH SYNOPSIS
+.B deckhand
+[\fB\-c\fR \fIPATH\fR | \fB\-\-config\fR \fIPATH\fR]
+[\fB\-\-no\-color\fR]
+.IR COMMAND " [" ARGS "]"
+.SH DESCRIPTION
+.B deckhand
+keeps build artifacts, caches, and generated outputs clean across Cargo, Node.js,
+Python, Go, Swift, and Gradle projects. It discovers build systems, reports disk
+usage, runs native clean commands, prunes stale artifacts, and can auto-clean
+projects when configured thresholds are met.
+.PP
+It is the operational-hygiene counterpart to version-management tools like
+.BR kaptaind (1).
+.SH COMMANDS
+.TP
+.BR init " [\fB\-f\fR|\fB\-\-force\fR]"
+Generate a new
+.I deckhand.toml
+and
+.I .deckhandignore
+for the current project.
+.TP
+.BR status " [\fB\-j\fR|\fB\-\-json\fR] [\fB\-l\fR|\fB\-\-limit\fR " \fIN\fR]
+Report disk usage of build artifacts and caches.
+.TP
+.BR clean " [\fB\-p\fR|\fB\-\-profile\fR " \fIPROFILE\fR] [\fB\-\-dry\-run\fR] [\fB\-o\fR|\fB\-\-older\-than\fR " \fIDAYS\fR] [\fB\-t\fR|\fB\-\-target\-dir\fR " \fIPATH\fR]
+Run native clean commands across all detected build systems in the workspace.
+.I PROFILE
+may be
+.IR debug ", " release ", or " all " (default)."
+.TP
+.BR sweep " [\fB\-p\fR|\fB\-\-path\fR " \fIPATH\fR] [\fB\-\-dry\-run\fR] [\fB\-k\fR|\fB\-\-keep\-days\fR " \fIDAYS\fR]
+Prune stale build artifacts and caches older than
+.I DAYS
+(default 30).
+.TP
+.BR auto\-clean " [\fB\-\-dry\-run\fR]
+Match installed binaries in configured bin directories against each project's
+.IR target/ " output. Matched projects are queued FIFO and cleaned only when the"
+configured clutter-tolerance or free-space threshold is met, and only outside
+the configured cooldown period.
+.TP
+.BR auto\-start " \fICOMMAND\fR"
+Install or manage a systemd user service that runs
+.B deckhand auto-clean
+at user login.
+.RS
+.TP
+.B install " [\fB\-c\fR|\fB\-\-config\fR " \fIPATH\fR] [\fB\-f\fR|\fB\-\-force\fR] [\fB\-\-dry\-run\fR]
+Write and enable
+.IR ~/.config/systemd/user/deckhand\-auto\-clean.service .
+.TP
+.B uninstall " [\fB\-\-dry\-run\fR]
+Disable and remove the service file.
+.TP
+.B status
+Show whether the service is installed and enabled.
+.RE
+.SH OPTIONS
+.TP
+.BR \-c ", " \-\-config " " \fIPATH\fR
+Path to
+.IR deckhand.toml .
+This option is global and applies to all subcommands.
+.TP
+.BR \-\-no\-color
+Suppress colored output.
+.TP
+.BR \-h ", " \-\-help
+Print help information.
+.TP
+.BR \-V ", " \-\-version
+Print version information.
+.SH CONFIGURATION
+Configuration is read from
+.I deckhand.toml
+in the workspace root unless overridden with
+.BR \-\-config .
+The file is organized into sections:
+.SS [workspace]
+.TP
+.BR path
+Workspace root path (default: \fB.\fR).
+.TP
+.BR members
+Member discovery mode: \fBauto\fR, \fBall\fR, or a list of crate names.
+.SS [clean]
+.TP
+.BR profiles
+List of Cargo profiles to clean (default: \fB[\(dqdebug\(dq, \(dqrelease\(dq]\fR).
+.TP
+.BR keep_incremental
+Whether to keep incremental compilation artifacts.
+.TP
+.BR keep_days
+Only remove artifacts older than this many days (0 means no age filter).
+.TP
+.BR languages
+Enabled language drivers (default all: cargo, node, python, go, swift, gradle).
+.TP
+.BR allow_native_commands
+Allow running native clean commands such as \fBcargo clean\fR.
+.TP
+.BR remove_node_modules
+Allow removal of \fBnode_modules\fR directories.
+.TP
+.BR remove_venvs
+Allow removal of Python virtual environments.
+.SS [sweep]
+Controls what \fBdeckhand sweep\fR removes.
+.TP
+.BR registry_cache " (bool)"
+Clean old Cargo registry cache entries.
+.TP
+.BR git_checkouts " (bool)"
+Clean old Cargo git checkouts.
+.TP
+.BR keep_registry_days " (u64)"
+Keep registry entries newer than this many days.
+.TP
+.BR node_modules " (bool)"
+Remove \fBnode_modules\fR during sweep.
+.TP
+.BR python_bytecode " (bool)"
+Remove Python bytecode caches.
+.TP
+.BR go_build_cache " (bool)"
+Remove Go build cache.
+.TP
+.BR swift_derived_data " (bool)"
+Remove Swift derived data.
+.SS [status]
+.TP
+.BR warn_free_percent
+Warn when free disk space falls below this percentage.
+.SS [auto_clean]
+Configuration for \fBdeckhand auto-clean\fR.
+.TP
+.BR enabled " (bool)"
+Enable the match-and-patch auto-clean strategy.
+.TP
+.BR scan_paths
+List of directories to scan for installed binaries (default:
+\fB[/bin, /usr/bin, /usr/local/bin, ~/.local/bin]\fR).
+.TP
+.BR clutter_tolerance
+Human-readable size (e.g. \fB\(dq5GB\(dq\fR). Auto-clean activates when the total
+size of queued project artifacts exceeds this value.
+.TP
+.BR min_free_space
+Human-readable size. Auto-clean activates when free space drops below this
+value.
+.TP
+.BR cooldown
+Human-readable duration (e.g. \fB\(dq1h30m\(dq\fR). Global cooldown between
+automated cleans of the same project.
+.TP
+.BR [auto_clean.projects."name"]
+Per-project overrides. Currently supports \fBcooldown\fR, which takes precedence
+over the global cooldown.
+.SH FILES
+.TP
+.I deckhand.toml
+Project configuration file.
+.TP
+.I .deckhandignore
+Patterns ignored during discovery.
+.TP
+.I .deckhand/auto-clean.toml
+Persisted FIFO queue and last-cleaned timestamps for \fBauto-clean\fR.
+.TP
+.I ~/.config/systemd/user/deckhand-auto-clean.service
+Systemd user service installed by \fBauto-start install\fR.
+.SH ENVIRONMENT
+.TP
+.B HOME
+Used to resolve \fB~\fR in config paths and to locate the systemd user unit
+directory when \fBXDG_CONFIG_HOME\fR is unset.
+.TP
+.B XDG_CONFIG_HOME
+Base directory for the systemd user unit file (default:
+\fB$HOME/.config\fR).
+.TP
+.B CARGO_HOME
+Location of Cargo caches; used by \fBstatus\fR and \fBsweep\fR.
+.SH EXAMPLES
+.TP
+Initialize deckhand for the current project:
+.B deckhand init
+.TP
+Show disk usage:
+.B deckhand status
+.TP
+Clean everything:
+.B deckhand clean
+.TP
+Dry-run a clean:
+.B deckhand clean --dry-run
+.TP
+Enable auto-clean and install the login service:
+.RS
+.nf
+deckhand auto-start install
+deckhand auto-start status
+.fi
+.RE
+.SH SEE ALSO
+.BR kaptaind (1),
+.BR cargo (1),
+.BR npm (1),
+.BR pnpm (1),
+.BR yarn (1),
+.BR go (1),
+.BR swift (1),
+.BR gradle (1)
+.SH AUTHOR
+Elci Group <deckhand@example.com>

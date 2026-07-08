@@ -60,6 +60,22 @@ swift_derived_data = false
 
 [status]
 warn_free_percent = 10
+
+# Match-and-patch auto-clean strategy.
+# When enabled, deckhand scans the paths below for installed binaries that match
+# the current contents of each project's target/ directory. Matched projects are
+# queued FIFO and cleaned only when clutter or free-space thresholds are met,
+# and only after any configured cooldown has elapsed.
+[auto_clean]
+enabled = false
+scan_paths = ["/bin", "/usr/bin", "/usr/local/bin", "~/.local/bin"]
+# clutter_tolerance = "5GB"     # activate when queued artifacts exceed this
+# min_free_space = "10GB"       # activate when free space drops below this
+# cooldown = "1h"               # global cooldown between automated cleans
+
+# Per-project overrides take precedence over the global cooldown.
+# [auto_clean.projects."my-crate"]
+# cooldown = "30m"
 "#
     );
 

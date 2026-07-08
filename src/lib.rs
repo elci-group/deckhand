@@ -1,3 +1,5 @@
+pub mod auto_clean;
+pub mod auto_start;
 pub mod build_system;
 pub mod clean;
 pub mod config;

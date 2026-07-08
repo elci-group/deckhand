@@ -136,10 +136,8 @@ fn sweep_dir(dir: &Path, keep_days: u64, dry_run: bool) -> Result<()> {
         let meta = entry.metadata()?;
         let mtime = meta.modified()?;
         let dt = chrono::DateTime::<Local>::from(mtime);
-        if dt < cutoff {
-            if !dry_run {
-                let _ = fs::remove_file(entry.path());
-            }
+        if dt < cutoff && !dry_run {
+            let _ = fs::remove_file(entry.path());
         }
     }
     Ok(())

@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use deckhand::{clean, config, init, status, sweep};
+use deckhand::{auto_clean, auto_start, clean, config, init, status, sweep};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -77,6 +77,47 @@ enum Commands {
         #[arg(short, long)]
         force: bool,
     },
+
+    /// Match installed binaries to target outputs and clean when thresholds are met
+    AutoClean {
+        /// Only print what would be removed or queued
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Install or manage a systemd user service that runs deckhand at login
+    AutoStart {
+        #[command(subcommand)]
+        command: AutoStartCommands,
+    },
+}
+
+#[derive(Subcommand)]
+enum AutoStartCommands {
+    /// Install a systemd user service that runs deckhand on login
+    Install {
+        /// Path to deckhand.toml used by the service
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+
+        /// Overwrite an existing service file
+        #[arg(short, long)]
+        force: bool,
+
+        /// Only print what would be installed
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Remove the systemd user service
+    Uninstall {
+        /// Only print what would be removed
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Show whether the service is installed and enabled
+    Status,
 }
 
 fn main() -> Result<()> {
@@ -111,6 +152,29 @@ fn main() -> Result<()> {
         Commands::Init { force } => {
             init::run(force)?;
         }
+        Commands::AutoClean { dry_run } => {
+            let cfg = config::Config::load_or_default(cli.config)?;
+            auto_clean::run(&cfg, dry_run)?;
+        }
+        Commands::AutoStart { command } => match command {
+            AutoStartCommands::Install {
+                config,
+                force,
+                dry_run,
+            } => {
+                auto_start::install(auto_start::InstallOptions {
+                    config_path: config.as_deref(),
+                    force,
+                    dry_run,
+                })?;
+            }
+            AutoStartCommands::Uninstall { dry_run } => {
+                auto_start::uninstall(dry_run)?;
+            }
+            AutoStartCommands::Status => {
+                auto_start::status()?;
+            }
+        },
     }
 
     Ok(())

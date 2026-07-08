@@ -1,6 +1,7 @@
 use anyhow::{Context, Result};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -15,6 +16,8 @@ pub struct Config {
     pub sweep: SweepConfig,
     #[serde(default)]
     pub status: StatusConfig,
+    #[serde(default)]
+    pub auto_clean: AutoCleanConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -120,6 +123,63 @@ pub struct StatusConfig {
     pub warn_free_percent: u64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AutoCleanConfig {
+    #[serde(default = "default_false")]
+    pub enabled: bool,
+    #[serde(default = "default_scan_paths")]
+    pub scan_paths: Vec<PathBuf>,
+    #[serde(default, deserialize_with = "deserialize_human_size_opt")]
+    pub clutter_tolerance: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_human_size_opt")]
+    pub min_free_space: Option<u64>,
+    #[serde(default, deserialize_with = "deserialize_duration_opt")]
+    pub cooldown: Option<u64>,
+    #[serde(default)]
+    pub projects: HashMap<String, ProjectOverride>,
+}
+
+impl AutoCleanConfig {
+    /// Return scan paths with a leading `~` expanded to `$HOME`.
+    pub fn resolved_scan_paths(&self) -> Vec<PathBuf> {
+        self.scan_paths.iter().map(|p| expand_tilde(p)).collect()
+    }
+}
+
+fn expand_tilde(path: &Path) -> PathBuf {
+    if let Some(s) = path.to_str() {
+        if s == "~" {
+            if let Ok(home) = std::env::var("HOME") {
+                return PathBuf::from(home);
+            }
+        } else if let Some(rest) = s.strip_prefix("~/") {
+            if let Ok(home) = std::env::var("HOME") {
+                return PathBuf::from(home).join(rest);
+            }
+        }
+    }
+    path.to_path_buf()
+}
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProjectOverride {
+    #[serde(default, deserialize_with = "deserialize_duration_opt")]
+    pub cooldown: Option<u64>,
+}
+
+impl Default for AutoCleanConfig {
+    fn default() -> Self {
+        AutoCleanConfig {
+            enabled: false,
+            scan_paths: default_scan_paths(),
+            clutter_tolerance: None,
+            min_free_space: None,
+            cooldown: None,
+            projects: HashMap::new(),
+        }
+    }
+}
+
 impl Default for WorkspaceConfig {
     fn default() -> Self {
         WorkspaceConfig {
@@ -189,6 +249,177 @@ fn default_ten() -> u64 {
     10
 }
 
+fn default_scan_paths() -> Vec<PathBuf> {
+    vec![
+        PathBuf::from("/bin"),
+        PathBuf::from("/usr/bin"),
+        PathBuf::from("/usr/local/bin"),
+        PathBuf::from("~/.local/bin"),
+    ]
+}
+
+/// Parse a human-readable byte size such as "5GB", "1.5MB", or "1024".
+pub fn parse_human_size(s: &str) -> Result<u64, String> {
+    let s = s.trim();
+    let mut num_str = String::new();
+    let mut unit_start = s.len();
+    for (i, c) in s.char_indices() {
+        if c.is_ascii_digit() || c == '.' {
+            num_str.push(c);
+        } else {
+            unit_start = i;
+            break;
+        }
+    }
+    if num_str.is_empty() {
+        return Err(format!("no numeric value in size \"{}\"", s));
+    }
+    let value: f64 = num_str
+        .parse()
+        .map_err(|e| format!("invalid size number: {}", e))?;
+    let unit = s[unit_start..].trim().to_lowercase();
+    let multiplier: u64 = match unit.as_str() {
+        "b" | "" => 1,
+        "kb" | "k" => 1024,
+        "mb" | "m" => 1024 * 1024,
+        "gb" | "g" => 1024 * 1024 * 1024,
+        "tb" | "t" => 1024u64 * 1024 * 1024 * 1024,
+        "pb" | "p" => 1024u64 * 1024 * 1024 * 1024 * 1024,
+        _ => return Err(format!("unknown size unit \"{}\"", unit)),
+    };
+    Ok((value * multiplier as f64) as u64)
+}
+
+/// Parse a human-readable duration such as "1h30m" or an integer number of seconds.
+pub fn parse_duration(s: &str) -> Result<u64, String> {
+    let s = s.trim();
+    if let Ok(secs) = s.parse::<u64>() {
+        return Ok(secs);
+    }
+
+    let mut total = 0u64;
+    let mut chars = s.chars().peekable();
+    while chars.peek().is_some() {
+        let mut num_str = String::new();
+        while let Some(&c) = chars.peek() {
+            if c.is_ascii_digit() {
+                num_str.push(c);
+                chars.next();
+            } else {
+                break;
+            }
+        }
+        if num_str.is_empty() {
+            return Err(format!("expected number in duration \"{}\"", s));
+        }
+        let n: u64 = num_str.parse().unwrap();
+
+        let mut unit = String::new();
+        while let Some(&c) = chars.peek() {
+            if c.is_alphabetic() {
+                unit.push(c);
+                chars.next();
+            } else {
+                break;
+            }
+        }
+        if unit.is_empty() {
+            return Err(format!("missing unit after {} in duration \"{}\"", n, s));
+        }
+        let secs = match unit.to_lowercase().as_str() {
+            "s" | "sec" | "secs" | "second" | "seconds" => n,
+            "m" | "min" | "mins" | "minute" | "minutes" => n * 60,
+            "h" | "hr" | "hrs" | "hour" | "hours" => n * 3600,
+            "d" | "day" | "days" => n * 86400,
+            "w" | "wk" | "week" | "weeks" => n * 604800,
+            _ => return Err(format!("unknown duration unit \"{}\"", unit)),
+        };
+        total += secs;
+    }
+    Ok(total)
+}
+
+fn deserialize_human_size_opt<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct HumanSizeVisitor;
+    impl<'de> Visitor<'de> for HumanSizeVisitor {
+        type Value = Option<u64>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str(
+                "an integer number of bytes or a human-size string like \"5GB\"",
+            )
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(value))
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            if value < 0 {
+                return Err(de::Error::custom("size cannot be negative"));
+            }
+            Ok(Some(value as u64))
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            parse_human_size(value).map(Some).map_err(de::Error::custom)
+        }
+    }
+    deserializer.deserialize_any(HumanSizeVisitor)
+}
+
+fn deserialize_duration_opt<'de, D>(deserializer: D) -> Result<Option<u64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    struct DurationVisitor;
+    impl<'de> Visitor<'de> for DurationVisitor {
+        type Value = Option<u64>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter
+                .write_str("an integer number of seconds or a duration string like \"1h30m\"")
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(Some(value))
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            if value < 0 {
+                return Err(de::Error::custom("duration cannot be negative"));
+            }
+            Ok(Some(value as u64))
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            parse_duration(value).map(Some).map_err(de::Error::custom)
+        }
+    }
+    deserializer.deserialize_any(DurationVisitor)
+}
+
 fn default_clean_languages() -> Vec<String> {
     // Backward-compatible default when the key is missing from an existing config file.
     vec!["cargo".to_string()]
@@ -231,4 +462,94 @@ impl Config {
 
 pub fn default_config_path() -> PathBuf {
     PathBuf::from("deckhand.toml")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn parses_human_sizes() {
+        assert_eq!(parse_human_size("1024").unwrap(), 1024);
+        assert_eq!(parse_human_size("1KB").unwrap(), 1024);
+        assert_eq!(parse_human_size("2MB").unwrap(), 2 * 1024 * 1024);
+        assert_eq!(parse_human_size("1.5GB").unwrap(), (1.5 * (1024.0f64).powi(3)) as u64);
+        assert_eq!(parse_human_size("1tb").unwrap(), 1024u64 * 1024 * 1024 * 1024);
+        assert_eq!(
+            parse_human_size("1pb").unwrap(),
+            1024u64 * 1024 * 1024 * 1024 * 1024
+        );
+    }
+
+    #[test]
+    fn rejects_invalid_size() {
+        assert!(parse_human_size("abc").is_err());
+        assert!(parse_human_size("5XB").is_err());
+    }
+
+    #[test]
+    fn parses_durations() {
+        assert_eq!(parse_duration("60").unwrap(), 60);
+        assert_eq!(parse_duration("30s").unwrap(), 30);
+        assert_eq!(parse_duration("5m").unwrap(), 300);
+        assert_eq!(parse_duration("1h30m").unwrap(), 5400);
+        assert_eq!(parse_duration("1d").unwrap(), 86400);
+    }
+
+    #[test]
+    fn rejects_invalid_duration() {
+        assert!(parse_duration("abc").is_err());
+        assert!(parse_duration("1x").is_err());
+    }
+
+    #[test]
+    fn parses_auto_clean_config() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("deckhand.toml");
+        let mut f = std::fs::File::create(&path).unwrap();
+        f.write_all(
+            br#"
+[auto_clean]
+enabled = true
+clutter_tolerance = "5GB"
+min_free_space = "10GB"
+cooldown = "1h30m"
+
+[auto_clean.projects."my-crate"]
+cooldown = "30m"
+"#,
+        )
+        .unwrap();
+
+        let cfg = Config::load(&path).unwrap();
+        assert!(cfg.auto_clean.enabled);
+        assert_eq!(cfg.auto_clean.clutter_tolerance, Some(5 * 1024 * 1024 * 1024));
+        assert_eq!(cfg.auto_clean.min_free_space, Some(10 * 1024 * 1024 * 1024));
+        assert_eq!(cfg.auto_clean.cooldown, Some(5400));
+        assert_eq!(
+            cfg.auto_clean.projects.get("my-crate").unwrap().cooldown,
+            Some(1800)
+        );
+    }
+
+    #[test]
+    fn auto_clean_defaults_when_missing() {
+        let cfg = Config::default();
+        assert!(!cfg.auto_clean.enabled);
+        assert_eq!(cfg.auto_clean.clutter_tolerance, None);
+        assert_eq!(cfg.auto_clean.min_free_space, None);
+        assert_eq!(cfg.auto_clean.cooldown, None);
+        assert!(cfg.auto_clean.projects.is_empty());
+        assert_eq!(cfg.auto_clean.scan_paths.len(), 4);
+    }
+
+    #[test]
+    fn resolves_tilde_in_scan_paths() {
+        std::env::set_var("HOME", "/home/sailor");
+        let mut cfg = Config::default();
+        cfg.auto_clean.scan_paths = vec![PathBuf::from("~/.local/bin")];
+        let resolved = cfg.auto_clean.resolved_scan_paths();
+        assert_eq!(resolved, vec![PathBuf::from("/home/sailor/.local/bin")]);
+    }
 }
