@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use anyhow::Result;
-use colored::*;
+use crate::color::*;
 use serde::Serialize;
 
 use crate::config::Config;
@@ -135,7 +135,7 @@ fn find_largest_artifacts(ws: &workspace::Workspace, limit: usize) -> Vec<Artifa
             if !dir.exists() {
                 continue;
             }
-            for entry in walkdir::WalkDir::new(&dir)
+            for entry in crate::walk::WalkDir::new(&dir)
                 .into_iter()
                 .filter_map(|e| e.ok())
                 .filter(|e| e.file_type().is_file())

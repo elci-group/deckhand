@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::Result;
-use colored::*;
+use crate::color::*;
 
 use crate::build_system::{CleanContext, CleanResult};
 use crate::config::Config;

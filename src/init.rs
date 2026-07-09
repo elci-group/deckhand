@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use colored::*;
+use crate::color::*;
 
 use crate::build_system;
 

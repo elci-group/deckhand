@@ -2,12 +2,18 @@ pub mod auto_clean;
 pub mod auto_start;
 pub mod build_system;
 pub mod clean;
+pub mod color;
 pub mod config;
 pub mod fmt;
+pub mod fs;
 pub mod init;
 pub mod status;
 pub mod sweep;
+pub mod walk;
 pub mod workspace;
+
+#[cfg(test)]
+pub mod test_util;
 
 use anyhow::Result;
 use std::path::PathBuf;
@@ -37,7 +43,7 @@ mod tests {
 
     #[test]
     fn parses_config_with_member_list() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         let path = dir.path().join("deckhand.toml");
         let mut f = std::fs::File::create(&path).unwrap();
         f.write_all(
@@ -65,7 +71,7 @@ profiles = ["release"]
 
     #[test]
     fn discovers_single_package_workspace() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         std::fs::write(
             dir.path().join("Cargo.toml"),
             r#"
@@ -83,7 +89,7 @@ version = "0.1.0"
 
     #[test]
     fn discovers_workspace_members() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         std::fs::write(
             dir.path().join("Cargo.toml"),
             r#"
@@ -115,7 +121,7 @@ members = ["crates/*"]
 
     #[test]
     fn detects_mixed_build_systems() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         std::fs::write(dir.path().join("Cargo.toml"), "[package]\nname = \"mixed\"\n").unwrap();
         std::fs::write(dir.path().join("package.json"), "{}").unwrap();
         std::fs::write(dir.path().join("pyproject.toml"), "").unwrap();

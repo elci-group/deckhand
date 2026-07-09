@@ -19,6 +19,12 @@ cd deckhand
 ./install.sh
 ```
 
+Deckhand keeps its dependency surface small: only a handful of foundational
+crates (`anyhow`, `chrono`, `clap`, `libc`, `serde`, `serde_json`, `toml`) are
+used. Utility features such as terminal colors, directory walking, free-space
+queries, and test temporary directories are implemented internally with no
+additional dependencies.
+
 ## Quick start
 
 ```bash

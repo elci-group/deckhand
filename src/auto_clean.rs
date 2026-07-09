@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
-use colored::*;
+use crate::color::*;
 use serde::{Deserialize, Serialize};
 
 use crate::clean;
@@ -359,7 +359,7 @@ fn total_artifact_size(project: &Project) -> u64 {
 }
 
 fn free_space(path: &Path) -> Result<u64> {
-    fs2::available_space(path)
+    crate::fs::available_space(path)
         .with_context(|| format!("failed to query free space for {}", path.display()))
 }
 
@@ -520,7 +520,7 @@ mod tests {
 
     #[test]
     fn matches_installed_by_name_and_size() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         let installed = dir.path().join("mybin");
         let target = dir.path().join("target").join("release").join("mybin");
         fs::create_dir_all(target.parent().unwrap()).unwrap();
@@ -540,7 +540,7 @@ mod tests {
 
     #[test]
     fn matches_installed_by_name_and_size_rejects_different_size() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         let installed = dir.path().join("mybin");
         let target = dir.path().join("target").join("release").join("mybin");
         fs::create_dir_all(target.parent().unwrap()).unwrap();

@@ -505,7 +505,7 @@ mod tests {
 
     #[test]
     fn parses_auto_clean_config() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         let path = dir.path().join("deckhand.toml");
         let mut f = std::fs::File::create(&path).unwrap();
         f.write_all(

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::Result;
-use colored::*;
+use crate::color::*;
 
 use crate::build_system::{run_native, BuildSystem, CleanContext, CleanResult, Partition};
 use crate::fmt;
@@ -27,7 +27,7 @@ impl Gradle {
             out.push(root_build);
         }
         // Common Gradle multi-project layout: subproject/build
-        for entry in walkdir::WalkDir::new(root)
+        for entry in crate::walk::WalkDir::new(root)
             .max_depth(3)
             .into_iter()
             .filter_map(|e| e.ok())
@@ -131,14 +131,14 @@ mod tests {
 
     #[test]
     fn detects_gradle_kts() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("build.gradle.kts"), "").unwrap();
         assert!(Gradle.detect(dir.path()));
     }
 
     #[test]
     fn finds_build_dirs() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("settings.gradle"), "").unwrap();
         fs::create_dir_all(dir.path().join("app").join("build")).unwrap();
         fs::write(dir.path().join("app").join("build.gradle"), "").unwrap();

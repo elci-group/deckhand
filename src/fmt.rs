@@ -1,4 +1,4 @@
-use colored::*;
+use crate::color::*;
 use std::path::Path;
 
 pub fn banner(title: &str) {
@@ -23,7 +23,7 @@ pub fn human_size(bytes: u64) -> String {
 
 pub fn dir_size(path: &Path) -> std::io::Result<u64> {
     let mut total = 0u64;
-    for entry in walkdir::WalkDir::new(path)
+    for entry in crate::walk::WalkDir::new(path)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())

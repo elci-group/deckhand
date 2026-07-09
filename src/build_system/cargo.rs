@@ -133,14 +133,14 @@ mod tests {
 
     #[test]
     fn detects_cargo_project() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
         assert!(Cargo.detect(dir.path()));
     }
 
     #[test]
     fn lists_target_artifact() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
         fs::create_dir(dir.path().join("target")).unwrap();
         let arts = Cargo.artifacts(dir.path());

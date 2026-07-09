@@ -125,7 +125,7 @@ pub fn remove_older_than(dir: &Path, days: u64, dry_run: bool) -> Result<u64> {
     }
     let cutoff = Local::now() - TimeDelta::days(days as i64);
     let mut freed = 0u64;
-    for entry in walkdir::WalkDir::new(dir)
+    for entry in crate::walk::WalkDir::new(dir)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
@@ -189,32 +189,9 @@ pub fn collect_artifact_dirs(
     }
 
     if !recursive.is_empty() {
-        let walker = walkdir::WalkDir::new(root).into_iter();
-        for entry in walker.filter_entry(|e| {
-            if e.depth() == 0 {
-                return true;
-            }
-            !is_excluded_dir(
-                &e.file_name().to_string_lossy(),
-                exclude,
-            )
-        }) {
-            let entry = match entry {
-                Ok(e) => e,
-                Err(_) => continue,
-            };
-            if !entry.file_type().is_dir() {
-                continue;
-            }
-            let name = entry.file_name().to_string_lossy();
-            if recursive.iter().any(|r| *r == name.as_ref()) {
-                out.push(entry.path().to_path_buf());
-            }
-        }
+        out.extend(crate::walk::collect_artifact_dirs(root, &[], recursive, exclude));
     }
 
-    out.sort();
-    out.dedup();
     out
 }
 
@@ -224,7 +201,7 @@ mod tests {
 
     #[test]
     fn collect_dirs_finds_pycache() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         let pycache = dir.path().join("src").join("__pycache__");
         fs::create_dir_all(&pycache).unwrap();
         let found = collect_artifact_dirs(dir.path(), &[], &["__pycache__"], &[]);
@@ -233,7 +210,7 @@ mod tests {
 
     #[test]
     fn collect_dirs_skips_excluded() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         let venv_pycache = dir
             .path()
             .join(".venv")

@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 use chrono::{Local, TimeDelta};
-use colored::*;
+use crate::color::*;
 
 use crate::build_system::CleanContext;
 use crate::config::Config;
@@ -128,7 +128,7 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<(
 
 fn sweep_dir(dir: &Path, keep_days: u64, dry_run: bool) -> Result<()> {
     let cutoff = Local::now() - TimeDelta::days(keep_days as i64);
-    for entry in walkdir::WalkDir::new(dir)
+    for entry in crate::walk::WalkDir::new(dir)
         .into_iter()
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
@@ -146,7 +146,7 @@ fn sweep_dir(dir: &Path, keep_days: u64, dry_run: bool) -> Result<()> {
 fn sweep_cache(dir: &Path, keep_days: u64, dry_run: bool) -> Result<usize> {
     let cutoff = Local::now() - TimeDelta::days(keep_days as i64);
     let mut removed = 0;
-    for entry in walkdir::WalkDir::new(dir)
+    for entry in crate::walk::WalkDir::new(dir)
         .max_depth(3)
         .into_iter()
         .filter_map(|e| e.ok())

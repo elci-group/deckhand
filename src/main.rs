@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use deckhand::{auto_clean, auto_start, clean, config, init, status, sweep};
+use deckhand::{auto_clean, auto_start, clean, color, config, init, status, sweep};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -124,7 +124,7 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     if cli.no_color {
-        colored::control::set_override(false);
+        color::set_override(false);
     }
 
     match cli.command {

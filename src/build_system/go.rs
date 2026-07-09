@@ -89,14 +89,14 @@ mod tests {
 
     #[test]
     fn detects_go_mod() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("go.mod"), "module example\n").unwrap();
         assert!(Go.detect(dir.path()));
     }
 
     #[test]
     fn detects_go_work() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("go.work"), "go 1.21\n").unwrap();
         assert!(Go.detect(dir.path()));
     }

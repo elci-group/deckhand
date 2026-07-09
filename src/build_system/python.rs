@@ -110,14 +110,14 @@ mod tests {
 
     #[test]
     fn detects_python_project() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("pyproject.toml"), "").unwrap();
         assert!(Python.detect(dir.path()));
     }
 
     #[test]
     fn finds_pycache_and_dist() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("setup.py"), "").unwrap();
         let pycache = dir.path().join("src").join("__pycache__");
         fs::create_dir_all(&pycache).unwrap();
@@ -129,7 +129,7 @@ mod tests {
 
     #[test]
     fn does_not_delete_venv_by_default() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("pyproject.toml"), "").unwrap();
         fs::create_dir(dir.path().join(".venv")).unwrap();
         let ctx = CleanContext::default();
@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn deletes_venv_when_opted_in() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("pyproject.toml"), "").unwrap();
         fs::create_dir(dir.path().join(".venv")).unwrap();
         let ctx = CleanContext {

@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{bail, Context, Result};
-use colored::*;
+use crate::color::*;
 
 const SERVICE_NAME: &str = "deckhand-auto-clean.service";
 
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn resolve_config_uses_supplied_path() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         let config = dir.path().join("deckhand.toml");
         fs::write(&config, "").unwrap();
         let (resolved, workdir) = resolve_config_and_workdir(Some(&config)).unwrap();

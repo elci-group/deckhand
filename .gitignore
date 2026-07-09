@@ -1,5 +1,7 @@
 /target
 .deckhand-state
 .kaptaind
+.amber/
+amber_proposals/
 *.log
 .DS_Store

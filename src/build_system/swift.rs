@@ -98,14 +98,14 @@ mod tests {
 
     #[test]
     fn detects_swift_package() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("Package.swift"), "// swift-tools-version:5.5\n").unwrap();
         assert!(Swift.detect(dir.path()));
     }
 
     #[test]
     fn lists_build_artifact() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("Package.swift"), "").unwrap();
         fs::create_dir(dir.path().join(".build")).unwrap();
         let arts = Swift.artifacts(dir.path());

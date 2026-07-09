@@ -196,14 +196,14 @@ mod tests {
 
     #[test]
     fn detects_node_project() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("package.json"), "{}").unwrap();
         assert!(Node.detect(dir.path()));
     }
 
     #[test]
     fn detects_nextjs_output() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         write_package(dir.path(), &[("next", "14.0.0")]);
         fs::create_dir(dir.path().join(".next")).unwrap();
         let arts = Node.artifacts(dir.path());
@@ -212,7 +212,7 @@ mod tests {
 
     #[test]
     fn dry_run_keeps_node_modules() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("package.json"), "{}").unwrap();
         fs::create_dir(dir.path().join("node_modules")).unwrap();
         fs::write(dir.path().join("node_modules").join("x"), "x").unwrap();
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn removes_node_modules_when_opted_in() {
-        let dir = tempfile::tempdir().unwrap();
+        let dir = crate::test_util::tempdir().unwrap();
         fs::write(dir.path().join("package.json"), "{}").unwrap();
         fs::create_dir(dir.path().join("node_modules")).unwrap();
 
