@@ -19,7 +19,11 @@ pub fn available_space<P: AsRef<Path>>(path: P) -> io::Result<u64> {
         return Err(io::Error::last_os_error());
     }
 
-    Ok(stat.f_bavail * stat.f_frsize)
+    // fsblkcnt_t/f_frsize widths vary by platform (u32 on macOS, u64 on
+    // Linux): widen both before multiplying. The conversion is a no-op on
+    // 64-bit Linux, hence the allow.
+    #[allow(clippy::useless_conversion)]
+    Ok(u64::from(stat.f_bavail) * u64::from(stat.f_frsize))
 }
 
 /// Stub for non-Unix platforms where `statvfs` is unavailable.
