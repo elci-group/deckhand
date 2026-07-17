@@ -30,6 +30,9 @@ network_push = true
 patch = 0.0
 minor = 0.6
 
+[conflict]
+auto_rebase = true
+
 [ratelimit]
 min_commit_interval = 10
 
