@@ -760,4 +760,60 @@ cooldown = "30m"
         let resolved = cfg.auto_clean.resolved_scan_paths();
         assert_eq!(resolved, vec![PathBuf::from("/home/sailor/.local/bin")]);
     }
+
+    #[test]
+    fn parses_daemon_config() {
+        let dir = crate::test_util::tempdir().unwrap();
+        let path = dir.path().join("deckhand.toml");
+        let mut f = std::fs::File::create(&path).unwrap();
+        f.write_all(
+            br#"
+[daemon]
+enabled = true
+scan_interval = "2h"
+watch_interval = "30s"
+debounce = "10m"
+notify_threshold = "5GB"
+min_free_percent = 15
+fast_path = true
+auto_clean = true
+notify_backend = "log"
+snooze_duration = "2d"
+watch_paths = ["~/work", "/tmp/lab"]
+"#,
+        )
+        .unwrap();
+
+        let cfg = Config::load(&path).unwrap();
+        let d = &cfg.daemon;
+        assert!(d.enabled);
+        assert_eq!(d.scan_interval_secs(), 7200);
+        assert_eq!(d.watch_interval_secs(), 30);
+        assert_eq!(d.debounce_secs(), 600);
+        assert_eq!(d.notify_threshold_bytes(), 5 * 1024 * 1024 * 1024);
+        assert_eq!(d.free_percent_floor(&cfg.status), 15);
+        assert!(d.fast_path);
+        assert!(d.auto_clean);
+        assert_eq!(d.notify_backend, "log");
+        assert_eq!(d.snooze_duration_secs(), 2 * 24 * 3600);
+        assert_eq!(d.watch_paths.len(), 2);
+    }
+
+    #[test]
+    fn daemon_defaults_are_safe() {
+        let cfg = Config::default();
+        let d = &cfg.daemon;
+        assert!(!d.enabled);
+        assert!(!d.fast_path);
+        assert!(!d.auto_clean);
+        assert_eq!(d.notify_backend, "auto");
+        assert_eq!(d.scan_interval_secs(), DEFAULT_SCAN_INTERVAL_SECS);
+        assert_eq!(d.watch_interval_secs(), DEFAULT_WATCH_INTERVAL_SECS);
+        assert_eq!(d.debounce_secs(), DEFAULT_DEBOUNCE_SECS);
+        assert_eq!(d.notify_threshold_bytes(), DEFAULT_NOTIFY_THRESHOLD_BYTES);
+        assert_eq!(d.snooze_duration_secs(), DEFAULT_SNOOZE_SECS);
+        // Free-space floor falls back to the status warning percent.
+        assert_eq!(d.free_percent_floor(&cfg.status), cfg.status.warn_free_percent);
+        assert!(d.watch_paths.is_empty());
+    }
 }
