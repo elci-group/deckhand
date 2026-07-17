@@ -140,10 +140,15 @@ pub fn refresh_watches(watches: &mut [ArtifactWatch]) {
     }
 }
 
-/// Whether the scan crosses either suggestion threshold.
+/// Whether the scan crosses either suggestion threshold. A low-free-space
+/// reading only counts when there is something to reclaim — suggesting a
+/// zero-byte cleanup helps no one.
 pub fn thresholds_met(scan: &DeepScan, cfg: &Config) -> bool {
     if scan.total_bytes >= cfg.daemon.notify_threshold_bytes() {
         return true;
+    }
+    if scan.total_bytes == 0 {
+        return false;
     }
     match scan.free_percent {
         Some(pct) => pct < cfg.daemon.free_percent_floor(&cfg.status),
@@ -273,9 +278,11 @@ mod tests {
     fn thresholds_by_size_or_free_percent() {
         let cfg = daemon_cfg(1_000, 10);
         assert!(thresholds_met(&scan_with(vec![], 1_000, Some(90)), &cfg));
-        assert!(thresholds_met(&scan_with(vec![], 0, Some(9)), &cfg));
+        assert!(thresholds_met(&scan_with(vec![finding("/a", 1)], 1, Some(9)), &cfg));
         assert!(!thresholds_met(&scan_with(vec![], 999, Some(10)), &cfg));
         assert!(!thresholds_met(&scan_with(vec![], 999, None), &cfg));
+        // Low free space with nothing to reclaim is not a suggestion.
+        assert!(!thresholds_met(&scan_with(vec![], 0, Some(9)), &cfg));
     }
 
     #[test]
