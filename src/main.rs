@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use deckhand::{auto_clean, auto_start, clean, color, config, init, inspect, status, sweep, tts};
+use deckhand::{auto_clean, auto_start, clean, color, config, emoji, init, inspect, spinner, status, sweep, tts};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -22,6 +22,10 @@ struct Cli {
     /// Suppress colored output
     #[arg(long, global = true)]
     no_color: bool,
+
+    /// Suppress emoji and progress spinners
+    #[arg(long, global = true)]
+    no_emoji: bool,
 
     /// Speak command summaries via ElevenLabs TTS
     #[arg(long, global = true, conflicts_with = "no_tts")]
