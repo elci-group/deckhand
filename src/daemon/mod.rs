@@ -300,6 +300,11 @@ impl Daemon {
                 return;
             }
         };
+        // Pick up CLI confirm/decline changes made since the last scan.
+        if let Ok(fresh) = state::load() {
+            self.state = fresh;
+            self.watches = self.state.watches.clone();
+        }
         let decision = monitor::evaluate(&self.state, &scan, &self.cfg, Utc::now());
         println!(
             "[deckhandd] scan: {} reclaimable across {} project(s), free {}% → {:?}",
