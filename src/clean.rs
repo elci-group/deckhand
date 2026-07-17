@@ -80,7 +80,8 @@ pub fn run(
     if ws.projects.len() > 1 || total_freed > 0 {
         println!();
         println!(
-            "Total freed: {}",
+            "{} Total freed: {}",
+            emoji::e(emoji::DISK),
             fmt::human_size(total_freed).green().bold()
         );
     }
@@ -111,14 +112,20 @@ pub fn run(
 
 fn print_result(project: &workspace::Project, result: &CleanResult, dry_run: bool) {
     let action = if dry_run { "would clean" } else { "cleaned" };
+    let icon = if dry_run {
+        emoji::e(emoji::INFO)
+    } else {
+        emoji::e(emoji::TRASH)
+    };
     if result.removed_dirs.is_empty() && result.bytes_freed == 0 {
-        println!("  {} nothing to clean", project.name.cyan());
+        println!("  {} {} nothing to clean", icon, project.name.cyan());
         return;
     }
 
     if result.removed_dirs.is_empty() {
         println!(
-            "  {} {} ({})",
+            "  {} {} {} ({})",
+            icon,
             project.name.cyan(),
             action,
             fmt::human_size(result.bytes_freed).green()
@@ -127,7 +134,8 @@ fn print_result(project: &workspace::Project, result: &CleanResult, dry_run: boo
         for dir in &result.removed_dirs {
             let size = fmt::dir_size(dir).unwrap_or(0);
             println!(
-                "  {} {} {} {}",
+                "  {} {} {} {} {}",
+                icon,
                 project.name.cyan(),
                 action,
                 dir.display(),
