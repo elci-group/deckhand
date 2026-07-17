@@ -20,6 +20,9 @@ r = 0.15
 enabled = true
 branch = "master"
 
+[capabilities]
+network_push = true
+
 [ratelimit]
 min_commit_interval = 10
 
