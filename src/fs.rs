@@ -10,6 +10,12 @@ use std::path::Path;
 /// Return the available bytes on the filesystem containing `path`.
 #[cfg(unix)]
 pub fn available_space<P: AsRef<Path>>(path: P) -> io::Result<u64> {
+    space_usage(path).map(|(available, _)| available)
+}
+
+/// Return `(available, total)` bytes on the filesystem containing `path`.
+#[cfg(unix)]
+pub fn space_usage<P: AsRef<Path>>(path: P) -> io::Result<(u64, u64)> {
     let c_path = std::ffi::CString::new(path.as_ref().as_os_str().as_encoded_bytes())
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "path contains null"))?;
 
@@ -23,7 +29,19 @@ pub fn available_space<P: AsRef<Path>>(path: P) -> io::Result<u64> {
     // Linux): widen both before multiplying. The conversion is a no-op on
     // 64-bit Linux, hence the allow.
     #[allow(clippy::useless_conversion)]
-    Ok(u64::from(stat.f_bavail) * u64::from(stat.f_frsize))
+    Ok((
+        u64::from(stat.f_bavail) * u64::from(stat.f_frsize),
+        u64::from(stat.f_blocks) * u64::from(stat.f_frsize),
+    ))
+}
+
+/// Stub for non-Unix platforms where `statvfs` is unavailable.
+#[cfg(not(unix))]
+pub fn space_usage<P: AsRef<Path>>(_path: P) -> io::Result<(u64, u64)> {
+    Err(io::Error::new(
+        io::ErrorKind::Unsupported,
+        "space_usage is only implemented on Unix",
+    ))
 }
 
 /// Stub for non-Unix platforms where `statvfs` is unavailable.
