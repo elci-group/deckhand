@@ -1,6 +1,6 @@
 [package]
 name = "deckhand"
-version = "0.21.0"
+version = "0.21.2"
 edition = "2021"
 authors = ["Elci Group <deckhand@example.com>"]
 description = "Deterministic build-surface maintenance and hygiene agent for Cargo workspaces"
@@ -14,11 +14,17 @@ rust-version = "1.74"
 name = "deckhand"
 path = "src/main.rs"
 
+[features]
+# Native desktop notifications via org.freedesktop.Notifications (notify-rust/zbus).
+# The default build stays dependency-free and uses notify-send or the log backend.
+dbus = ["dep:notify-rust"]
+
 [dependencies]
 anyhow = "1"
 chrono = { version = "0.4", features = ["clock", "serde"] }
 clap = { version = "4", features = ["derive"] }
 libc = "0.2"
+notify-rust = { version = "4", optional = true }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"

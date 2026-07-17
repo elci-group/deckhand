@@ -297,7 +297,7 @@ impl Daemon {
 
         self.state.last_scan = Some(scan.scanned_at);
         self.state.watches = scan.watches.clone();
-        self.watches = scan.watches;
+        self.watches = scan.watches.clone();
 
         match decision {
             Decision::Clear => {

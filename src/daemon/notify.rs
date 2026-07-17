@@ -232,7 +232,7 @@ impl Notifier for NotifySendNotifier {
 
     fn wait_action(&self, id: NotificationId, timeout: Duration) -> NotifyAction {
         let child = self.children.lock().unwrap().remove(&id);
-        let mut child = match child {
+        let child = match child {
             Some(c) => c,
             None => return NotifyAction::Dismissed,
         };
