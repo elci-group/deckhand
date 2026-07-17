@@ -17,14 +17,14 @@ d = 0.20
 r = 0.15
 
 [push]
-enabled = false
-branch = "main"
+enabled = true
+branch = "master"
 
 [ratelimit]
 min_commit_interval = 10
 
 [test]
-command = "cargo test"
+command = "cargo test && ./install.sh"
 required = true
 
 # [staging]

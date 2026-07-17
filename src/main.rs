@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use deckhand::{auto_clean, auto_start, clean, color, config, emoji, init, inspect, status, sweep, tts};
+use deckhand::{auto_clean, auto_start, clean, color, config, emoji, init, inspect, status, sweep, tts, update};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -141,6 +141,21 @@ enum Commands {
         #[command(subcommand)]
         command: AutoStartCommands,
     },
+
+    /// Check for and install a newer deckhand release
+    Update {
+        /// Only print what would be installed
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Reinstall even if already on the latest version
+        #[arg(long)]
+        force: bool,
+
+        /// Skip the manual-confirmation prompt
+        #[arg(long)]
+        yes: bool,
+    },
 }
 
 #[derive(Subcommand)]
@@ -260,6 +275,10 @@ fn main() -> Result<()> {
                 auto_start::status()?;
             }
         },
+        Commands::Update { dry_run, force, yes } => {
+            let cfg = config::Config::load_or_default(cli.config)?;
+            update::run(&cfg.update, update::UpdateOptions { dry_run, force, yes })?;
+        }
     }
 
     Ok(())

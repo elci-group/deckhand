@@ -64,6 +64,13 @@ maven_repository = false
 [status]
 warn_free_percent = 10
 
+[update]
+enabled = false
+auto_install = false
+remote = "origin"
+source_dir = "~/deckhand"
+install_dir = "~/.local/bin"
+
 # Optional spoken summaries via ElevenLabs. Disabled by default.
 # Key resolution order: --tts-api-key / DECKHAND_TTS_API_KEY, this file,
 # project .env, ~/.config/deckhand/deckhand.toml, then ELEVENLABS_API_KEY from

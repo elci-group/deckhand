@@ -20,7 +20,11 @@ pub struct Config {
     pub tts: TtsConfig,
     #[serde(default)]
     pub auto_clean: AutoCleanConfig,
+    #[serde(default)]
+    pub update: UpdateConfig,
 }
+
+pub use crate::update::UpdateConfig;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WorkspaceConfig {
@@ -514,6 +518,8 @@ fn default_clean_languages_all() -> Vec<String> {
         "go".to_string(),
         "swift".to_string(),
         "gradle".to_string(),
+        "dotnet".to_string(),
+        "maven".to_string(),
     ]
 }
 

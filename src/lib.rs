@@ -13,6 +13,7 @@ pub mod spinner;
 pub mod status;
 pub mod sweep;
 pub mod tts;
+pub mod update;
 pub mod walk;
 pub mod workspace;
 
