@@ -77,6 +77,7 @@ See [docs/LANGUAGES.md](docs/LANGUAGES.md) for the full manifest/artifact matrix
 | `deckhand sweep` | Prune stale build artifacts and caches |
 | `deckhand auto-clean` | Clean matched projects when clutter/free-space thresholds are met |
 | `deckhand auto-start` | Install or manage a systemd user service that runs deckhand at login |
+| `deckhand daemon` | Monitor disk usage and suggest cleanups via desktop notifications |
 
 ## Configuration
 
@@ -126,6 +127,19 @@ scan_paths = ["/bin", "/usr/bin", "/usr/local/bin", "~/.local/bin"]
 
 # [auto_clean.projects."my-crate"]
 # cooldown = "30m"
+
+# [daemon]
+# enabled = false
+# scan_interval = "6h"        # deep-scan cadence
+# watch_interval = "60s"      # free-space + artifact-mtime checks
+# debounce = "5m"             # quiet window after build activity
+# notify_threshold = "2GB"    # suggest when this much is reclaimable
+# min_free_percent = 10       # or when free space drops below this
+# fast_path = false           # also offer [Clean now] on the first notification
+# auto_clean = false          # unattended mode: clean without confirmation
+# notify_backend = "auto"     # auto | dbus | notify-send | log
+# snooze_duration = "1d"
+# watch_paths = []            # extra roots besides [workspace].path
 ```
 
 ### Backward compatibility
@@ -197,6 +211,37 @@ deckhand auto-start install --config /path/to/deckhand.toml
 # Check status or remove
 deckhand auto-start status
 deckhand auto-start uninstall
+```
+
+## Daemon: monitoring and cleanup notifications
+
+`deckhand daemon run` starts a long-running monitor (this is what the systemd unit launches). It watches cheap signals — filesystem free space (`statvfs`) and artifact-directory mtimes — every `watch_interval`, and only walks directories for sizes when something actually changed (after a `debounce` quiet window), when `scan_interval` elapses, or when you run `deckhand daemon scan`. When reclaimable space crosses `notify_threshold` (or free space drops below the floor), it posts a desktop notification suggesting a cleanup.
+
+Nothing is ever deleted without confirmation. The default flow is a "double click":
+
+1. Suggestion notification: "3.2 GB reclaimable across 5 projects" — `[Review] [Snooze 1d]`
+2. Click **Review** → per-project breakdown — `[Clean now] [Cancel]`
+3. Click **Clean now** → deckhand cleans and posts the result ("Freed 3.1 GB")
+
+Headless fallback: if no notification backend is available, the suggestion is logged and held; confirm with `deckhand daemon confirm` (or dismiss with `deckhand daemon decline`). Snoozed or dismissed suggestions stay quiet until they grow by 25% or their project set changes.
+
+Notification backends (`notify_backend = "auto"`): a compiled-in D-Bus backend (build with `--features dbus`, uses `notify-rust`/zbus — no external binaries needed), the `notify-send` CLI when present in `$PATH`, or plain logging. The default build adds zero dependencies.
+
+Set `[daemon] auto_clean = true` for unattended mode: crossed thresholds trigger cleaning immediately (a result notification is still posted). It ships disabled.
+
+```bash
+# Run in the foreground (journal-friendly logs)
+deckhand daemon run
+
+# Install as a systemd user service
+deckhand daemon install
+systemctl --user start deckhand-daemon.service
+
+# Interact with the running daemon
+deckhand daemon status      # pending suggestion, last scan
+deckhand daemon scan        # force a deep scan now (SIGUSR1)
+deckhand daemon confirm     # clean the pending suggestion
+deckhand daemon decline     # dismiss (or --snooze)
 ```
 
 ## License

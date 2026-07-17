@@ -80,6 +80,50 @@ Disable and remove the service file.
 .B status
 Show whether the service is installed and enabled.
 .RE
+.TP
+.BR daemon " \fICOMMAND\fR"
+Run or manage the monitoring daemon. The daemon watches free disk space and
+artifact-directory mtimes (cheap checks every \fBwatch_interval\fR) and only
+walks directories for sizes on cadence (\fBscan_interval\fR), after a debounced
+quiet window following build activity, or on demand
+(\fBdaemon scan\fR). When reclaimable space crosses \fBnotify_threshold\fR (or
+free space drops below the floor), it posts a desktop notification suggesting
+a cleanup. Deletion requires user confirmation: click
+.B Review
+and then
+.B Clean\ now
+on the notification, or run
+.BR "deckhand daemon confirm" .
+.RS
+.TP
+.B run
+Run the daemon in the foreground (what the systemd unit executes). Requires
+\fB[daemon].enabled = true\fR. Only one instance may run at a time (enforced
+with a lock file). Signals: \fBSIGUSR1\fR rescans, \fBSIGHUP\fR reloads the
+configuration, \fBSIGTERM\fR/\fBSIGINT\fR stop.
+.TP
+.B install " [\fB\-c\fR|\fB\-\-config\fR " \fIPATH\fR] [\fB\-f\fR|\fB\-\-force\fR] [\fB\-\-dry\-run\fR]
+Write and enable
+.IR ~/.config/systemd/user/deckhand\-daemon.service .
+.TP
+.B uninstall " [\fB\-\-dry\-run\fR]
+Stop, disable, and remove the service file.
+.TP
+.B status
+Show whether the daemon is running, the last scan time, and any pending
+suggestion.
+.TP
+.B scan
+Ask the running daemon to deep-scan immediately.
+.TP
+.BR confirm " [\fIID\fR] [\fB\-\-dry\-run\fR]
+Clean the pending suggestion (the CLI equivalent of clicking
+.BR "Clean now" ).
+.TP
+.BR decline " [\fB\-\-snooze\fR]
+Dismiss the pending suggestion, or snooze it for
+\fB[daemon].snooze_duration\fR.
+.RE
 .SH OPTIONS
 .TP
 .BR \-c ", " \-\-config " " \fIPATH\fR
@@ -182,6 +226,51 @@ automated cleans of the same project.
 .BR [auto_clean.projects."name"]
 Per-project overrides. Currently supports \fBcooldown\fR, which takes precedence
 over the global cooldown.
+.SS [daemon]
+Configuration for \fBdeckhand daemon\fR. Durations accept human-readable forms
+like \fB\(dq6h\(dq\fR and sizes forms like \fB\(dq2GB\(dq\fR; unset keys use
+the documented defaults.
+.TP
+.BR enabled " (bool)"
+Master switch for \fBdaemon run\fR (default: \fBfalse\fR).
+.TP
+.BR scan_interval
+Deep-scan cadence (default: \fB6h\fR).
+.TP
+.BR watch_interval
+Cheap-check cadence: statvfs free space and artifact mtimes (default: \fB60s\fR).
+.TP
+.BR debounce
+Quiet window after the last observed artifact change before a deep scan is
+triggered (default: \fB5m\fR).
+.TP
+.BR notify_threshold
+Suggest a cleanup when total reclaimable bytes reach this value (default:
+\fB2GB\fR).
+.TP
+.BR min_free_percent
+Suggest when filesystem free space drops below this percent (default: the
+\fB[status].warn_free_percent\fR value).
+.TP
+.BR fast_path " (bool)"
+Also offer \fBClean now\fR on the first notification, skipping the review step
+(default: \fBfalse\fR).
+.TP
+.BR auto_clean " (bool)"
+Unattended mode: clean immediately when thresholds are crossed and post a
+result notification (default: \fBfalse\fR — nothing is deleted without
+confirmation).
+.TP
+.BR notify_backend
+\fBauto\fR, \fBdbus\fR, \fBnotify\-send\fR, or \fBlog\fR (default: \fBauto\fR).
+The \fBdbus\fR backend requires building with \fB--features dbus\fR.
+.TP
+.BR snooze_duration
+Length of the \fBSnooze\fR action (default: \fB1d\fR).
+.TP
+.BR watch_paths
+Extra workspace roots to monitor besides \fB[workspace].path\fR (a leading
+\fB~\fR is expanded).
 .SH FILES
 .TP
 .I deckhand.toml
@@ -195,6 +284,16 @@ Persisted FIFO queue and last-cleaned timestamps for \fBauto-clean\fR.
 .TP
 .I ~/.config/systemd/user/deckhand-auto-clean.service
 Systemd user service installed by \fBauto-start install\fR.
+.TP
+.I ~/.config/systemd/user/deckhand-daemon.service
+Systemd user service installed by \fBdaemon install\fR.
+.TP
+.I ~/.local/state/deckhand/daemon.toml
+Persisted daemon state: deep-scan cache, pending suggestion, and
+snooze/dismiss markers.
+.TP
+.I $XDG_RUNTIME_DIR/deckhand/
+Daemon lock and pid files (falls back to the state directory).
 .SH ENVIRONMENT
 .TP
 .B HOME
@@ -207,6 +306,17 @@ Base directory for the systemd user unit file (default:
 .TP
 .B CARGO_HOME
 Location of Cargo caches; used by \fBstatus\fR and \fBsweep\fR.
+.TP
+.B XDG_STATE_HOME
+Base directory for daemon state (default: \fB$HOME/.local/state\fR).
+.TP
+.B XDG_RUNTIME_DIR
+Base directory for the daemon lock/pid files and the session-bus probe used by
+the \fBauto\fR notify backend.
+.TP
+.B DBUS_SESSION_BUS_ADDRESS
+When set (or \fB$XDG_RUNTIME_DIR/bus\fR exists), the \fBauto\fR notify backend
+prefers the compiled-in D-Bus notifier (build with \fB--features dbus\fR).
 .SH EXAMPLES
 .TP
 Initialize deckhand for the current project:
@@ -226,6 +336,15 @@ Enable auto-clean and install the login service:
 .nf
 deckhand auto-start install
 deckhand auto-start status
+.fi
+.RE
+.TP
+Run the monitoring daemon and confirm a suggestion from the CLI:
+.RS
+.nf
+deckhand daemon run
+deckhand daemon status
+deckhand daemon confirm
 .fi
 .RE
 .SH SEE ALSO
