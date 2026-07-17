@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use deckhand::{auto_clean, auto_start, clean, color, config, emoji, init, inspect, status, sweep, tts, update};
+use deckhand::{auto_clean, auto_start, clean, color, config, daemon, emoji, init, inspect, status, sweep, tts, update};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -142,6 +142,12 @@ enum Commands {
         command: AutoStartCommands,
     },
 
+    /// Run or manage the monitoring daemon (cleanup suggestions + confirmed cleans)
+    Daemon {
+        #[command(subcommand)]
+        command: DaemonCommands,
+    },
+
     /// Check for and install a newer deckhand release
     Update {
         /// Only print what would be installed
@@ -184,6 +190,57 @@ enum AutoStartCommands {
 
     /// Show whether the service is installed and enabled
     Status,
+}
+
+#[derive(Subcommand)]
+enum DaemonCommands {
+    /// Run the daemon in the foreground (this is what the systemd unit starts)
+    Run,
+
+    /// Install a systemd user service that runs the daemon at login
+    Install {
+        /// Path to deckhand.toml used by the service
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+
+        /// Overwrite an existing service file
+        #[arg(short, long)]
+        force: bool,
+
+        /// Only print what would be installed
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Remove the daemon's systemd user service
+    Uninstall {
+        /// Only print what would be removed
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Show whether the daemon is running and any pending suggestion
+    Status,
+
+    /// Ask the running daemon to deep-scan now
+    Scan,
+
+    /// Confirm the pending suggestion and clean (equivalent to clicking "Clean now")
+    Confirm {
+        /// Suggestion id to confirm (defaults to the pending one)
+        id: Option<String>,
+
+        /// Only print what would be removed
+        #[arg(long)]
+        dry_run: bool,
+    },
+
+    /// Dismiss the pending suggestion (or snooze it)
+    Decline {
+        /// Snooze for [daemon].snooze_duration instead of dismissing
+        #[arg(long)]
+        snooze: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -273,6 +330,39 @@ fn main() -> Result<()> {
             }
             AutoStartCommands::Status => {
                 auto_start::status()?;
+            }
+        },
+        Commands::Daemon { command } => match command {
+            DaemonCommands::Run => {
+                daemon::run(cli.config)?;
+            }
+            DaemonCommands::Install {
+                config,
+                force,
+                dry_run,
+            } => {
+                daemon::service::install(daemon::service::InstallOptions {
+                    config_path: config.as_deref(),
+                    force,
+                    dry_run,
+                })?;
+            }
+            DaemonCommands::Uninstall { dry_run } => {
+                daemon::service::uninstall(dry_run)?;
+            }
+            DaemonCommands::Status => {
+                daemon::status()?;
+            }
+            DaemonCommands::Scan => {
+                daemon::scan_now()?;
+            }
+            DaemonCommands::Confirm { id, dry_run } => {
+                let cfg = config::Config::load_or_default(cli.config)?;
+                daemon::confirm(&cfg, id.as_deref(), dry_run)?;
+            }
+            DaemonCommands::Decline { snooze } => {
+                let cfg = config::Config::load_or_default(cli.config)?;
+                daemon::decline(&cfg, snooze)?;
             }
         },
         Commands::Update { dry_run, force, yes } => {
