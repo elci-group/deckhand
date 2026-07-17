@@ -177,6 +177,7 @@ fn main() -> Result<()> {
     if cli.no_color {
         color::set_override(false);
     }
+    emoji::set_enabled(!cli.no_emoji);
 
     let tts_overrides = tts::TtsOverrides {
         enabled: if cli.tts {
