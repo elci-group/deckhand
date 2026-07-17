@@ -1,7 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
-use crate::color::*;
+use crate::emoji;
 use anyhow::{Context, Result};
 
 use crate::build_system;
@@ -18,7 +18,7 @@ pub fn run(force: bool) -> Result<()> {
     if config_path.exists() && !force {
         println!(
             "{} deckhand.toml already exists. Use --force to overwrite.",
-            "info:".blue().bold()
+            emoji::e(emoji::INFO)
         );
         return Ok(());
     }
@@ -100,13 +100,21 @@ scan_paths = ["/bin", "/usr/bin", "/usr/local/bin", "~/.local/bin"]
 
     fs::write(&config_path, config)
         .with_context(|| format!("failed to write {}", config_path.display()))?;
-    println!("{} created {}", "✓".green().bold(), config_path.display());
+    println!(
+        "{} Created {}",
+        emoji::e(emoji::SUCCESS),
+        config_path.display()
+    );
 
     let ignore_path = PathBuf::from(".deckhandignore");
     if !ignore_path.exists() || force {
         fs::write(&ignore_path, DEFAULT_IGNORE)
             .with_context(|| format!("failed to write {}", ignore_path.display()))?;
-        println!("{} created {}", "✓".green().bold(), ignore_path.display());
+        println!(
+            "{} Created {}",
+            emoji::e(emoji::SUCCESS),
+            ignore_path.display()
+        );
     }
 
     Ok(())

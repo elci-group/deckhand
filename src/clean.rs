@@ -112,19 +112,15 @@ pub fn run(
 
 fn print_result(project: &workspace::Project, result: &CleanResult, dry_run: bool) {
     let action = if dry_run { "would clean" } else { "cleaned" };
-    let icon = if dry_run {
-        emoji::e(emoji::INFO)
-    } else {
-        emoji::e(emoji::TRASH)
-    };
+    let icon = emoji::s(if dry_run { emoji::INFO } else { emoji::TRASH });
     if result.removed_dirs.is_empty() && result.bytes_freed == 0 {
-        println!("  {} {} nothing to clean", icon, project.name.cyan());
+        println!("  {}{} nothing to clean", icon, project.name.cyan());
         return;
     }
 
     if result.removed_dirs.is_empty() {
         println!(
-            "  {} {} {} ({})",
+            "  {}{} {} ({})",
             icon,
             project.name.cyan(),
             action,
@@ -134,7 +130,7 @@ fn print_result(project: &workspace::Project, result: &CleanResult, dry_run: boo
         for dir in &result.removed_dirs {
             let size = fmt::dir_size(dir).unwrap_or(0);
             println!(
-                "  {} {} {} {} {}",
+                "  {}{} {} {} {}",
                 icon,
                 project.name.cyan(),
                 action,

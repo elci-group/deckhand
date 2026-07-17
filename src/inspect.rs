@@ -16,7 +16,9 @@ use anyhow::Result;
 use serde::Serialize;
 
 use crate::color::*;
+use crate::emoji;
 use crate::fmt;
+use crate::spinner;
 
 #[derive(Debug, Clone)]
 pub struct InspectOptions {
@@ -47,7 +49,7 @@ pub fn run(opts: &InspectOptions) -> Result<()> {
         anyhow::bail!("scan root {} is not a directory", root.display());
     }
 
-    let mut findings = scan(root, opts.same_file_system);
+    let mut findings = spinner::spin("Scanning for Rust projects", || scan(root, opts.same_file_system));
 
     // Largest reclaimable first, then by path for stable output.
     findings.sort_by(|a, b| {
@@ -229,16 +231,18 @@ fn print_text(
     total_cleanable: u64,
     min_size: u64,
 ) {
-    fmt::banner("Deckhand: inspect");
-    println!("Scan root: {}", root.display());
+    fmt::banner(&emoji::label(emoji::INSPECT, "Deckhand: inspect"));
+    println!("{} Scan root: {}", emoji::e(emoji::FOLDER), root.display());
     println!(
-        "Found {} Rust project(s); {} candidate(s) for cleaning.",
+        "{} Found {} Rust project(s); {} candidate(s) for cleaning.",
+        emoji::e(emoji::INFO),
         findings.len(),
         candidates
     );
     if min_size > 0 {
         println!(
-            "Showing candidates >= {} (use --min-size 0 to show all).",
+            "{} Showing candidates >= {} (use --min-size 0 to show all).",
+            emoji::e(emoji::INFO),
             fmt::human_size(min_size)
         );
     }
@@ -250,14 +254,15 @@ fn print_text(
         .collect();
 
     if candidates == 0 {
-        println!("{}", "No cleaning candidates found.".dimmed());
+        println!("{} {}", emoji::e(emoji::INFO), "No cleaning candidates found.".dimmed());
     } else if reported.is_empty() {
         println!(
-            "{}",
+            "{} {}",
+            emoji::e(emoji::INFO),
             "No candidates meet the --min-size threshold.".dimmed()
         );
     } else {
-        println!("{}", "Candidates (reclaimable):".bold());
+        println!("{} {}", emoji::e(emoji::SPARKLES), "Candidates (reclaimable):".bold());
         for (i, f) in reported.iter().enumerate() {
             println!(
                 "  {:2}. {:>10}  {}  {}{}",
@@ -274,7 +279,8 @@ fn print_text(
     if non_candidates > 0 {
         println!();
         println!(
-            "{}",
+            "{} {}",
+            emoji::e(emoji::INFO),
             format!(
                 "{} project(s) have no build artifacts (not candidates).",
                 non_candidates
@@ -286,7 +292,8 @@ fn print_text(
     if total_cleanable > 0 {
         println!();
         println!(
-            "Total reclaimable: {}",
+            "{} Total reclaimable: {}",
+            emoji::e(emoji::DISK),
             fmt::human_size(total_cleanable).green().bold()
         );
     }

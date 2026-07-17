@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::Result;
 use crate::color::*;
+use crate::emoji;
 use serde::Serialize;
 
 use crate::config::Config;
@@ -44,7 +45,8 @@ pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<String> {
             }
             Err(e) => {
                 eprintln!(
-                    "  {} status failed for {}: {}",
+                    "  {}{} status failed for {}: {}",
+                    emoji::s(emoji::ERROR),
                     "error".red().bold(),
                     project.name,
                     e
@@ -87,10 +89,10 @@ pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<String> {
         return Ok(summary);
     }
 
-    fmt::banner("Deckhand: status");
-    println!("Workspace root: {}", ws.root.display());
+    fmt::banner(&emoji::label(emoji::STATUS, "Deckhand: status"));
+    println!("{}Workspace root: {}", emoji::s(emoji::FOLDER), ws.root.display());
     println!();
-    println!("{}", "Partitions:".bold());
+    println!("{}Partitions:", emoji::s(emoji::STATUS).bold());
     for p in &partitions {
         println!(
             "  {:40} {:>10}",
@@ -100,7 +102,7 @@ pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<String> {
     }
 
     println!();
-    println!("{}", "Largest artifacts:".bold());
+    println!("{}Largest artifacts:", emoji::s(emoji::FOLDER).bold());
     for (i, a) in largest.iter().enumerate() {
         println!(
             "  {:2}. {:10} {}",

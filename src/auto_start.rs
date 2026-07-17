@@ -4,6 +4,7 @@ use std::process::Command;
 
 use anyhow::{bail, Context, Result};
 use crate::color::*;
+use crate::emoji;
 
 const SERVICE_NAME: &str = "deckhand-auto-clean.service";
 
@@ -53,7 +54,8 @@ WantedBy=default.target
 
     if opts.dry_run {
         println!(
-            "{} would write {}:\n{}",
+            "{} {} would write {}:\n{}",
+            emoji::e(emoji::INFO),
             "[dry-run]".yellow(),
             unit_path.display(),
             unit
@@ -73,12 +75,16 @@ WantedBy=default.target
     systemctl(&["--user", "enable", SERVICE_NAME])?;
 
     println!(
-        "{} installed and enabled {}",
-        "✓".green().bold(),
+        "{} Installed and enabled {}",
+        emoji::e(emoji::SUCCESS),
         SERVICE_NAME
     );
-    println!("  unit: {}", unit_path.display());
-    println!("  run: systemctl --user start {}", SERVICE_NAME);
+    println!("  {} unit: {}", emoji::e(emoji::LOCK), unit_path.display());
+    println!(
+        "  {} run: systemctl --user start {}",
+        emoji::e(emoji::ROCKET),
+        SERVICE_NAME
+    );
 
     Ok(())
 }
@@ -90,7 +96,7 @@ pub fn uninstall(dry_run: bool) -> Result<()> {
     if !unit_path.exists() {
         println!(
             "{} {} is not installed",
-            "info:".blue().bold(),
+            emoji::e(emoji::INFO),
             SERVICE_NAME
         );
         return Ok(());
@@ -98,7 +104,8 @@ pub fn uninstall(dry_run: bool) -> Result<()> {
 
     if dry_run {
         println!(
-            "{} would disable and remove {}",
+            "{} {} would disable and remove {}",
+            emoji::e(emoji::INFO),
             "[dry-run]".yellow(),
             unit_path.display()
         );
@@ -113,7 +120,11 @@ pub fn uninstall(dry_run: bool) -> Result<()> {
 
     systemctl(&["--user", "daemon-reload"])?;
 
-    println!("{} disabled and removed {}", "✓".green().bold(), SERVICE_NAME);
+    println!(
+        "{} Disabled and removed {}",
+        emoji::e(emoji::SUCCESS),
+        SERVICE_NAME
+    );
     Ok(())
 }
 
@@ -134,12 +145,22 @@ pub fn status() -> Result<()> {
         false
     };
 
-    println!("{}: {}", SERVICE_NAME, if installed { "installed".green() } else { "not installed".red() });
-    println!("enabled: {}", if enabled { "yes".green() } else { "no".red() });
+    println!(
+        "{} {}: {}",
+        emoji::e(emoji::AUTO_START),
+        SERVICE_NAME,
+        if installed { "installed".green() } else { "not installed".red() }
+    );
+    println!(
+        "{} enabled: {}",
+        emoji::e(emoji::INFO),
+        if enabled { "yes".green() } else { "no".red() }
+    );
     if installed {
-        println!("unit path: {}", unit_path.display());
+        println!("{} unit path: {}", emoji::e(emoji::LOCK), unit_path.display());
         println!(
-            "next login will run: systemctl --user start {}",
+            "{} next login will run: systemctl --user start {}",
+            emoji::e(emoji::ROCKET),
             SERVICE_NAME
         );
     }

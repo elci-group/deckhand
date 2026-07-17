@@ -35,6 +35,16 @@ pub fn label(emoji: &str, text: &str) -> String {
     }
 }
 
+/// Return the emoji followed by a space, or an empty string when disabled.
+/// Useful for prefixing error/warning labels without leaving a leading space.
+pub fn s(emoji: &str) -> String {
+    if enabled() {
+        format!("{} ", emoji)
+    } else {
+        String::new()
+    }
+}
+
 pub const STATUS: &str = "📊";
 pub const CLEAN: &str = "🧹";
 pub const SWEEP: &str = "🌊";
@@ -55,3 +65,4 @@ pub const FOLDER: &str = "📁";
 pub const SPARKLES: &str = "✨";
 pub const CLOCK: &str = "⏱️";
 pub const LOCK: &str = "🔒";
+pub const ROCKET: &str = "🚀";

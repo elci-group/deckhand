@@ -5,11 +5,13 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use chrono::{DateTime, Duration as ChronoDuration, Utc};
 use crate::color::*;
+use crate::emoji;
 use serde::{Deserialize, Serialize};
 
 use crate::clean;
 use crate::config::{Config, ProjectOverride};
 use crate::fmt;
+use crate::spinner;
 use crate::workspace::{Project, Workspace};
 
 const STATE_DIR: &str = ".deckhand";
@@ -46,7 +48,7 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<String> {
     if !ac.enabled {
         println!(
             "{} auto-clean is disabled; set [auto_clean].enabled = true in deckhand.toml",
-            "info:".blue().bold()
+            emoji::e(emoji::INFO)
         );
         return Ok("auto-clean is disabled".to_string());
     }
@@ -54,16 +56,17 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<String> {
     if ac.clutter_tolerance.is_none() && ac.min_free_space.is_none() {
         println!(
             "{} auto-clean: no activation thresholds configured (clutter_tolerance / min_free_space); nothing to do",
-            "info:".blue().bold()
+            emoji::e(emoji::INFO)
         );
         return Ok("auto-clean has no activation thresholds; nothing to do".to_string());
     }
 
-    fmt::banner("Deckhand: auto-clean");
-    println!("Workspace root: {}", ws.root.display());
+    fmt::banner(&emoji::label(emoji::AUTO_CLEAN, "Deckhand: auto-clean"));
+    println!("{} Workspace root: {}", emoji::e(emoji::FOLDER), ws.root.display());
     if dry_run {
         println!(
-            "{}",
+            "{} {}",
+            emoji::e(emoji::INFO),
             "[dry-run] no files will be removed and state will not be updated"
                 .yellow()
         );
@@ -71,10 +74,15 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<String> {
     println!();
 
     let scan_paths = ac.resolved_scan_paths();
-    let matched = find_matching_projects(&ws, &scan_paths)?;
+    let matched = spinner::spin("Matching installed binaries to target outputs", || {
+        find_matching_projects(&ws, &scan_paths)
+    })?;
 
     if matched.is_empty() {
-        println!("No installed binaries matched current target outputs.");
+        println!(
+            "{} No installed binaries matched current target outputs.",
+            emoji::e(emoji::INFO)
+        );
         return Ok("auto-clean found no matching installed binaries".to_string());
     }
 
@@ -89,7 +97,8 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<String> {
             save_state(&ws.root, &state)?;
         }
         println!(
-            "Activation thresholds not met; {} project(s) queued.",
+            "{} Activation thresholds not met; {} project(s) queued.",
+            emoji::e(emoji::INFO),
             state.queue.len()
         );
         return Ok(format!(
@@ -99,8 +108,8 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<String> {
     }
 
     println!(
-        "{} activation thresholds met; processing {} candidate(s) in FIFO order",
-        "→".green().bold(),
+        "{} Activation thresholds met; processing {} candidate(s) in FIFO order",
+        emoji::e(emoji::SUCCESS),
         state.queue.len()
     );
     println!();
@@ -111,7 +120,7 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<String> {
         println!();
         println!(
             "{} {} project(s) would be cleaned if not run with --dry-run",
-            "[dry-run]".yellow(),
+            emoji::e(emoji::INFO),
             cleaned.len()
         );
         format!(
@@ -128,13 +137,17 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<String> {
         save_state(&ws.root, &state)?;
 
         if cleaned.is_empty() {
-            println!("No projects cleaned (all candidates on cooldown).");
+            println!(
+                "{} No projects cleaned (all candidates on cooldown).",
+                emoji::e(emoji::INFO)
+            );
             "auto-clean met thresholds but cleaned no projects; all candidates on cooldown"
                 .to_string()
         } else {
             println!();
             println!(
-                "Cleaned {} project(s); {} still queued.",
+                "{} Cleaned {} project(s); {} still queued.",
+                emoji::e(emoji::SUCCESS),
                 cleaned.len(),
                 state.queue.len()
             );
@@ -309,7 +322,10 @@ fn update_queue(
 }
 
 fn print_queue(ws: &Workspace, queue: &[QueuedProject]) {
-    println!("{} matched project queue (FIFO):", "●".cyan());
+    println!(
+        "{} Matched project queue (FIFO):",
+        emoji::e(emoji::SPARKLES)
+    );
     for (i, queued) in queue.iter().enumerate() {
         let name = ws
             .projects
@@ -400,7 +416,8 @@ fn execute_clean(
             if elapsed < cooldown {
                 let remaining = cooldown - elapsed;
                 println!(
-                    "  {} {} on cooldown ({} remaining)",
+                    "  {} {} {} on cooldown ({} remaining)",
+                    emoji::e(emoji::CLOCK),
                     project.name.cyan(),
                     "skipped".yellow(),
                     format_duration(remaining)
@@ -416,7 +433,8 @@ fn execute_clean(
             }
             Err(e) => {
                 eprintln!(
-                    "  {} {}: {}",
+                    "  {}{} {}: {}",
+                    emoji::s(emoji::ERROR),
                     "error".red().bold(),
                     project.name,
                     e
@@ -460,14 +478,16 @@ fn format_duration(d: ChronoDuration) -> String {
 
 fn print_clean_result(project: &Project, result: &crate::build_system::CleanResult, dry_run: bool) {
     let action = if dry_run { "would clean" } else { "cleaned" };
+    let icon = emoji::s(if dry_run { emoji::INFO } else { emoji::TRASH });
     if result.removed_dirs.is_empty() && result.bytes_freed == 0 {
-        println!("  {} nothing to clean", project.name.cyan());
+        println!("  {}{} nothing to clean", icon, project.name.cyan());
         return;
     }
 
     if result.removed_dirs.is_empty() {
         println!(
-            "  {} {} ({})",
+            "  {}{} {} ({})",
+            icon,
             project.name.cyan(),
             action,
             fmt::human_size(result.bytes_freed).green()
@@ -476,7 +496,8 @@ fn print_clean_result(project: &Project, result: &crate::build_system::CleanResu
         for dir in &result.removed_dirs {
             let size = fmt::dir_size(dir).unwrap_or(0);
             println!(
-                "  {} {} {} {}",
+                "  {}{} {} {} {}",
+                icon,
                 project.name.cyan(),
                 action,
                 dir.display(),

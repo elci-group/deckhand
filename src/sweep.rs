@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use chrono::{Local, TimeDelta};
 use crate::color::*;
+use crate::emoji;
 
 use crate::build_system::CleanContext;
 use crate::config::Config;
@@ -12,10 +13,14 @@ use crate::fmt;
 use crate::workspace;
 
 pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<String> {
-    fmt::banner("Deckhand: sweep");
-    println!("Sweep path: {}", path.display());
+    fmt::banner(&emoji::label(emoji::SWEEP, "Deckhand: sweep"));
+    println!("{} Sweep path: {}", emoji::e(emoji::FOLDER), path.display());
     if dry_run {
-        println!("{}", "[dry-run] no files will be removed".yellow());
+        println!(
+            "{} {}",
+            emoji::e(emoji::INFO),
+            "[dry-run] no files will be removed".yellow()
+        );
     }
     println!();
 
@@ -57,7 +62,8 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<S
                     total_freed += freed;
                     artifacts_seen += 1;
                     println!(
-                        "  {} {} → {} (freed {})",
+                        "  {}{} {} → {} (freed {})",
+                        emoji::s(emoji::SWEEP),
                         project.name.cyan(),
                         fmt::human_size(before),
                         fmt::human_size(after),
@@ -80,14 +86,21 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<S
                     let before = fmt::dir_size(&artifact)?;
                     if let Err(e) = project.system.clean(&project.path, &ctx) {
                         failed += 1;
-                        eprintln!("  error cleaning {}: {}", project.name, e);
+                        eprintln!(
+                            "  {}{} cleaning {}: {}",
+                            emoji::s(emoji::ERROR),
+                            "error".red().bold(),
+                            project.name,
+                            e
+                        );
                     }
                     let after = if dry_run { before } else { fmt::dir_size(&artifact).unwrap_or(0) };
                     let freed = before.saturating_sub(after);
                     total_freed += freed;
                     artifacts_seen += 1;
                     println!(
-                        "  {} {} → {} (freed {})",
+                        "  {}{} {} → {} (freed {})",
+                        emoji::s(emoji::SWEEP),
                         format!("{} {}", project.name, name).cyan(),
                         fmt::human_size(before),
                         fmt::human_size(after),
@@ -108,7 +121,8 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<S
             cache_entries_removed += removed;
             total_freed += before.saturating_sub(after);
             println!(
-                "  registry cache {} removed, {} → {} (freed {})",
+                "  {} registry cache {} removed, {} → {} (freed {})",
+                emoji::s(emoji::PACKAGE),
                 removed,
                 fmt::human_size(before),
                 fmt::human_size(after),
@@ -127,7 +141,8 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<S
             cache_entries_removed += removed;
             total_freed += before.saturating_sub(after);
             println!(
-                "  git checkouts {} removed, {} → {} (freed {})",
+                "  {} git checkouts {} removed, {} → {} (freed {})",
+                emoji::s(emoji::PACKAGE),
                 removed,
                 fmt::human_size(before),
                 fmt::human_size(after),
@@ -146,7 +161,8 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<S
             cache_entries_removed += removed;
             total_freed += before.saturating_sub(after);
             println!(
-                "  nuget cache {} removed, {} → {} (freed {})",
+                "  {} nuget cache {} removed, {} → {} (freed {})",
+                emoji::s(emoji::PACKAGE),
                 removed,
                 fmt::human_size(before),
                 fmt::human_size(after),
@@ -165,7 +181,8 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<S
             cache_entries_removed += removed;
             total_freed += before.saturating_sub(after);
             println!(
-                "  bun cache {} removed, {} → {} (freed {})",
+                "  {} bun cache {} removed, {} → {} (freed {})",
+                emoji::s(emoji::PACKAGE),
                 removed,
                 fmt::human_size(before),
                 fmt::human_size(after),
@@ -184,7 +201,8 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<S
             cache_entries_removed += removed;
             total_freed += before.saturating_sub(after);
             println!(
-                "  maven repository {} removed, {} → {} (freed {})",
+                "  {} maven repository {} removed, {} → {} (freed {})",
+                emoji::s(emoji::PACKAGE),
                 removed,
                 fmt::human_size(before),
                 fmt::human_size(after),
