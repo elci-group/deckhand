@@ -2,6 +2,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use crate::color::*;
+use crate::emoji;
 
 use crate::build_system::{CleanContext, CleanResult};
 use crate::config::Config;
