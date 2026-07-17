@@ -112,6 +112,10 @@ struct Daemon {
     notifier: Arc<dyn Notifier>,
     state: DaemonState,
     watches: Vec<ArtifactWatch>,
+    /// Last free-space percent seen by Tier 0, for edge-triggered low-space
+    /// scans (fires on crossing the floor and on each further 5-point drop,
+    /// never continuously while stuck below the floor).
+    last_free_pct: Option<u64>,
     tx: mpsc::Sender<(String, NotifyAction)>,
     rx: mpsc::Receiver<(String, NotifyAction)>,
 }
@@ -141,6 +145,7 @@ pub fn run(cfg_path: Option<PathBuf>) -> Result<()> {
         notifier,
         state: st,
         watches,
+        last_free_pct: None,
         tx,
         rx,
     };
@@ -267,10 +272,19 @@ impl Daemon {
             *dirty_since = Some(Instant::now());
         }
         if let Ok(pct) = monitor::free_percent(&self.cfg.workspace.path) {
-            if pct < self.cfg.daemon.free_percent_floor(&self.cfg.status) && dirty_since.is_none() {
+            let floor = self.cfg.daemon.free_percent_floor(&self.cfg.status);
+            let below = pct < floor;
+            // Edge-triggered: fire on entering the floor band and on each
+            // further 5-point drop, so a chronically-full disk does not
+            // schedule a rescan every debounce window.
+            let newly_below = below && self.last_free_pct.map_or(true, |prev| prev >= floor);
+            let dropped_further =
+                below && self.last_free_pct.map_or(false, |prev| pct.saturating_add(5) <= prev);
+            if (newly_below || dropped_further) && dirty_since.is_none() {
                 println!("[deckhandd] free space low ({}%); scheduling rescan", pct);
                 *dirty_since = Some(Instant::now());
             }
+            self.last_free_pct = Some(pct);
         }
     }
 
