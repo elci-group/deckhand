@@ -20,6 +20,9 @@ r = 0.15
 enabled = true
 branch = "master"
 
+[push.safety]
+protect_branches = []
+
 [capabilities]
 network_push = true
 
