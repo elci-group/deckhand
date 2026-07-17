@@ -30,7 +30,7 @@ struct ArtifactReport {
     size_human: String,
 }
 
-pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<()> {
+pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<String> {
     let ws = workspace::discover(&cfg.workspace.path, &cfg.clean.languages)?;
     let mut partitions = Vec::new();
 
@@ -67,6 +67,8 @@ pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<()> {
 
     let mut largest = find_largest_artifacts(&ws, limit.unwrap_or(10));
     largest.sort_by_key(|b| std::cmp::Reverse(b.size_bytes));
+    let total_bytes: u64 = partitions.iter().map(|p| p.size_bytes).sum();
+    let summary = summarize_status(&partitions, &largest, total_bytes);
 
     if json {
         let report = StatusReport {
@@ -82,7 +84,7 @@ pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<()> {
                 .collect(),
         };
         println!("{}", serde_json::to_string_pretty(&report)?);
-        return Ok(());
+        return Ok(summary);
     }
 
     fmt::banner("Deckhand: status");
@@ -108,7 +110,24 @@ pub fn run(cfg: &Config, json: bool, limit: Option<usize>) -> Result<()> {
         );
     }
 
-    Ok(())
+    Ok(summary)
+}
+
+fn summarize_status(partitions: &[PartitionReport], largest: &[Artifact], total_bytes: u64) -> String {
+    let largest = match largest.first() {
+        Some(a) => format!(
+            "{} ({})",
+            a.path.display(),
+            fmt::human_size(a.size_bytes)
+        ),
+        None => "none".to_string(),
+    };
+    format!(
+        "status across {} partition(s); total tracked {}; largest artifact {}",
+        partitions.len(),
+        fmt::human_size(total_bytes),
+        largest
+    )
 }
 
 fn report_partition(name: &str, path: &Path) -> Result<PartitionReport> {

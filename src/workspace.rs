@@ -68,9 +68,21 @@ pub fn discover(root: &Path, language_names: &[String]) -> Result<Workspace> {
         } else {
             let name = root
                 .file_name()
-                .unwrap_or_default()
-                .to_string_lossy()
-                .to_string();
+                .and_then(|n| {
+                    let s = n.to_string_lossy();
+                    if s.is_empty() || s == "." {
+                        None
+                    } else {
+                        Some(s.into_owned())
+                    }
+                })
+                .or_else(|| {
+                    std::env::current_dir()
+                        .ok()?
+                        .file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                })
+                .unwrap_or_else(|| "project".to_string());
             projects.push(Project {
                 name,
                 path: root.to_path_buf(),

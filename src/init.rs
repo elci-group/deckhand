@@ -1,8 +1,8 @@
 use std::fs;
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
 use crate::color::*;
+use anyhow::{Context, Result};
 
 use crate::build_system;
 
@@ -57,9 +57,28 @@ node_modules = false
 python_bytecode = true
 go_build_cache = false
 swift_derived_data = false
+nuget_cache = false
+bun_cache = false
+maven_repository = false
 
 [status]
 warn_free_percent = 10
+
+# Optional spoken summaries via ElevenLabs. Disabled by default.
+# Key resolution order: --tts-api-key / DECKHAND_TTS_API_KEY, this file,
+# project .env, ~/.config/deckhand/deckhand.toml, then ELEVENLABS_API_KEY from
+# the environment or ~/.bashrc, ~/.zshrc, or ~/.profile.
+# [tts]
+# enabled = true
+# provider = "elevenlabs"
+# voice_id = "21m00Tcm4TlvDq8ikWAM"
+# model_id = "eleven_multilingual_v2"
+# output_format = "mp3_44100_128"
+# base_url = "https://api.elevenlabs.io"
+# announce = ["clean", "sweep", "auto_clean"]
+# timeout_secs = 30
+# api_key = "xi-..."                 # local project key; avoid committing it
+# api_key_env = "ELEVENLABS_API_KEY" # or read a named environment variable
 
 # Match-and-patch auto-clean strategy.
 # When enabled, deckhand scans the paths below for installed binaries that match

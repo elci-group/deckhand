@@ -11,7 +11,7 @@ use crate::config::Config;
 use crate::fmt;
 use crate::workspace;
 
-pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<()> {
+pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<String> {
     fmt::banner("Deckhand: sweep");
     println!("Sweep path: {}", path.display());
     if dry_run {
@@ -32,6 +32,11 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<(
 
     // Discover projects using the configured languages.
     let ws = workspace::discover(path, &cfg.clean.languages).ok();
+    let project_count = ws.as_ref().map(|ws| ws.projects.len()).unwrap_or(0);
+    let mut total_freed = 0u64;
+    let mut artifacts_seen = 0usize;
+    let mut cache_entries_removed = 0usize;
+    let mut failed = 0usize;
 
     if let Some(ref ws) = ws {
         for project in &ws.projects {
@@ -49,6 +54,8 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<(
                     sweep_dir(&artifact, keep_days, dry_run)?;
                     let after = if dry_run { before } else { fmt::dir_size(&artifact)? };
                     let freed = before.saturating_sub(after);
+                    total_freed += freed;
+                    artifacts_seen += 1;
                     println!(
                         "  {} {} → {} (freed {})",
                         project.name.cyan(),
@@ -71,12 +78,14 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<(
 
                 if artifact.exists() {
                     let before = fmt::dir_size(&artifact)?;
-                    let _ = project
-                        .system
-                        .clean(&project.path, &ctx)
-                        .map_err(|e| eprintln!("  error cleaning {}: {}", project.name, e));
+                    if let Err(e) = project.system.clean(&project.path, &ctx) {
+                        failed += 1;
+                        eprintln!("  error cleaning {}: {}", project.name, e);
+                    }
                     let after = if dry_run { before } else { fmt::dir_size(&artifact).unwrap_or(0) };
                     let freed = before.saturating_sub(after);
+                    total_freed += freed;
+                    artifacts_seen += 1;
                     println!(
                         "  {} {} → {} (freed {})",
                         format!("{} {}", project.name, name).cyan(),
@@ -96,6 +105,8 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<(
             let before = fmt::dir_size(&cache)?;
             let removed = sweep_cache(&cache, keep_days, dry_run)?;
             let after = if dry_run { before } else { fmt::dir_size(&cache)? };
+            cache_entries_removed += removed;
+            total_freed += before.saturating_sub(after);
             println!(
                 "  registry cache {} removed, {} → {} (freed {})",
                 removed,
@@ -113,6 +124,8 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<(
             let before = fmt::dir_size(&git)?;
             let removed = sweep_cache(&git, keep_days, dry_run)?;
             let after = if dry_run { before } else { fmt::dir_size(&git)? };
+            cache_entries_removed += removed;
+            total_freed += before.saturating_sub(after);
             println!(
                 "  git checkouts {} removed, {} → {} (freed {})",
                 removed,
@@ -123,7 +136,83 @@ pub fn run(cfg: &Config, path: &Path, dry_run: bool, keep_days: u64) -> Result<(
         }
     }
 
-    Ok(())
+    // NuGet cache
+    if cfg.sweep.nuget_cache {
+        let cache = nuget_packages()?;
+        if cache.exists() {
+            let before = fmt::dir_size(&cache)?;
+            let removed = sweep_cache(&cache, keep_days, dry_run)?;
+            let after = if dry_run { before } else { fmt::dir_size(&cache)? };
+            cache_entries_removed += removed;
+            total_freed += before.saturating_sub(after);
+            println!(
+                "  nuget cache {} removed, {} → {} (freed {})",
+                removed,
+                fmt::human_size(before),
+                fmt::human_size(after),
+                fmt::human_size(before.saturating_sub(after)).green()
+            );
+        }
+    }
+
+    // Bun install cache
+    if cfg.sweep.bun_cache {
+        let cache = bun_install_cache()?;
+        if cache.exists() {
+            let before = fmt::dir_size(&cache)?;
+            let removed = sweep_cache(&cache, keep_days, dry_run)?;
+            let after = if dry_run { before } else { fmt::dir_size(&cache)? };
+            cache_entries_removed += removed;
+            total_freed += before.saturating_sub(after);
+            println!(
+                "  bun cache {} removed, {} → {} (freed {})",
+                removed,
+                fmt::human_size(before),
+                fmt::human_size(after),
+                fmt::human_size(before.saturating_sub(after)).green()
+            );
+        }
+    }
+
+    // Maven repository cache
+    if cfg.sweep.maven_repository {
+        let cache = maven_repository()?;
+        if cache.exists() {
+            let before = fmt::dir_size(&cache)?;
+            let removed = sweep_cache(&cache, keep_days, dry_run)?;
+            let after = if dry_run { before } else { fmt::dir_size(&cache)? };
+            cache_entries_removed += removed;
+            total_freed += before.saturating_sub(after);
+            println!(
+                "  maven repository {} removed, {} → {} (freed {})",
+                removed,
+                fmt::human_size(before),
+                fmt::human_size(after),
+                fmt::human_size(before.saturating_sub(after)).green()
+            );
+        }
+    }
+
+    let summary = if dry_run {
+        format!(
+            "sweep dry run inspected {} project(s) and {} artifact(s); caches older than {} day(s) would be pruned; no files removed",
+            project_count, artifacts_seen, keep_days
+        )
+    } else {
+        format!(
+            "sweep inspected {} project(s) and {} artifact(s); freed {}; removed {} cache entr{} older than {} day(s)",
+            project_count,
+            artifacts_seen,
+            fmt::human_size(total_freed),
+            cache_entries_removed,
+            if cache_entries_removed == 1 { "y" } else { "ies" },
+            keep_days
+        )
+    };
+    if failed > 0 {
+        anyhow::bail!("{} project artifact(s) failed to sweep", failed);
+    }
+    Ok(summary)
 }
 
 fn sweep_dir(dir: &Path, keep_days: u64, dry_run: bool) -> Result<()> {
@@ -181,5 +270,32 @@ fn cargo_home() -> Result<PathBuf> {
     } else {
         let home = env::var("HOME").context("HOME not set")?;
         Ok(PathBuf::from(home).join(".cargo"))
+    }
+}
+
+fn nuget_packages() -> Result<PathBuf> {
+    if let Some(path) = env::var_os("NUGET_PACKAGES") {
+        Ok(PathBuf::from(path))
+    } else {
+        let home = env::var("HOME").context("HOME not set")?;
+        Ok(PathBuf::from(home).join(".nuget/packages"))
+    }
+}
+
+fn bun_install_cache() -> Result<PathBuf> {
+    if let Some(path) = env::var_os("BUN_INSTALL") {
+        Ok(PathBuf::from(path).join("install/cache"))
+    } else {
+        let home = env::var("HOME").context("HOME not set")?;
+        Ok(PathBuf::from(home).join(".bun/install/cache"))
+    }
+}
+
+fn maven_repository() -> Result<PathBuf> {
+    if let Some(path) = env::var_os("M2_REPO") {
+        Ok(PathBuf::from(path))
+    } else {
+        let home = env::var("HOME").context("HOME not set")?;
+        Ok(PathBuf::from(home).join(".m2/repository"))
     }
 }

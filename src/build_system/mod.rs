@@ -10,8 +10,10 @@ use std::time::Duration;
 use crate::fmt;
 
 pub mod cargo;
+pub mod dotnet;
 pub mod go;
 pub mod gradle;
+pub mod maven;
 pub mod node;
 pub mod python;
 pub mod swift;
@@ -78,6 +80,8 @@ pub fn registry() -> Vec<Box<dyn BuildSystem>> {
         Box::new(go::Go),
         Box::new(swift::Swift),
         Box::new(gradle::Gradle),
+        Box::new(maven::Maven),
+        Box::new(dotnet::Dotnet),
     ]
 }
 

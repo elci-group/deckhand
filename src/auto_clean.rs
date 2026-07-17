@@ -39,7 +39,7 @@ struct BinaryMeta {
     ino: u64,
 }
 
-pub fn run(cfg: &Config, dry_run: bool) -> Result<()> {
+pub fn run(cfg: &Config, dry_run: bool) -> Result<String> {
     let ws = crate::workspace::discover(&cfg.workspace.path, &cfg.clean.languages)?;
     let ac = &cfg.auto_clean;
 
@@ -48,7 +48,7 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<()> {
             "{} auto-clean is disabled; set [auto_clean].enabled = true in deckhand.toml",
             "info:".blue().bold()
         );
-        return Ok(());
+        return Ok("auto-clean is disabled".to_string());
     }
 
     if ac.clutter_tolerance.is_none() && ac.min_free_space.is_none() {
@@ -56,7 +56,7 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<()> {
             "{} auto-clean: no activation thresholds configured (clutter_tolerance / min_free_space); nothing to do",
             "info:".blue().bold()
         );
-        return Ok(());
+        return Ok("auto-clean has no activation thresholds; nothing to do".to_string());
     }
 
     fmt::banner("Deckhand: auto-clean");
@@ -75,7 +75,7 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<()> {
 
     if matched.is_empty() {
         println!("No installed binaries matched current target outputs.");
-        return Ok(());
+        return Ok("auto-clean found no matching installed binaries".to_string());
     }
 
     let mut state = load_state(&ws.root)?;
@@ -92,7 +92,10 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<()> {
             "Activation thresholds not met; {} project(s) queued.",
             state.queue.len()
         );
-        return Ok(());
+        return Ok(format!(
+            "auto-clean queued {} project(s); activation thresholds not met",
+            state.queue.len()
+        ));
     }
 
     println!(
@@ -104,13 +107,18 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<()> {
 
     let cleaned = execute_clean(&ws, &state.queue, &state.last_cleaned, cfg, dry_run)?;
 
-    if dry_run {
+    let summary = if dry_run {
         println!();
         println!(
             "{} {} project(s) would be cleaned if not run with --dry-run",
             "[dry-run]".yellow(),
             cleaned.len()
         );
+        format!(
+            "auto-clean dry run would clean {} project(s); {} queued",
+            cleaned.len(),
+            state.queue.len()
+        )
     } else {
         let cleaned_set: HashSet<&Path> = cleaned.iter().map(|p| p.as_path()).collect();
         state.queue.retain(|q| !cleaned_set.contains(q.path.as_path()));
@@ -121,6 +129,8 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<()> {
 
         if cleaned.is_empty() {
             println!("No projects cleaned (all candidates on cooldown).");
+            "auto-clean met thresholds but cleaned no projects; all candidates on cooldown"
+                .to_string()
         } else {
             println!();
             println!(
@@ -128,10 +138,15 @@ pub fn run(cfg: &Config, dry_run: bool) -> Result<()> {
                 cleaned.len(),
                 state.queue.len()
             );
+            format!(
+                "auto-clean cleaned {} project(s); {} still queued",
+                cleaned.len(),
+                state.queue.len()
+            )
         }
-    }
+    };
 
-    Ok(())
+    Ok(summary)
 }
 
 fn state_path(root: &Path) -> PathBuf {

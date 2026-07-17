@@ -7,8 +7,10 @@ pub mod config;
 pub mod fmt;
 pub mod fs;
 pub mod init;
+pub mod inspect;
 pub mod status;
 pub mod sweep;
+pub mod tts;
 pub mod walk;
 pub mod workspace;
 
@@ -82,7 +84,8 @@ version = "0.1.0"
         )
         .unwrap();
 
-        let ws = workspace::discover(dir.path(), &config::CleanConfig::default().languages).unwrap();
+        let ws =
+            workspace::discover(dir.path(), &config::CleanConfig::default().languages).unwrap();
         assert_eq!(ws.projects.len(), 1);
         assert_eq!(ws.projects[0].name, "solo");
     }
@@ -113,7 +116,8 @@ members = ["crates/*"]
         )
         .unwrap();
 
-        let ws = workspace::discover(dir.path(), &config::CleanConfig::default().languages).unwrap();
+        let ws =
+            workspace::discover(dir.path(), &config::CleanConfig::default().languages).unwrap();
         let names: Vec<_> = ws.projects.iter().map(|m| m.name.clone()).collect();
         assert!(names.contains(&"a".to_string()));
         assert!(names.contains(&"b".to_string()));
@@ -122,11 +126,16 @@ members = ["crates/*"]
     #[test]
     fn detects_mixed_build_systems() {
         let dir = crate::test_util::tempdir().unwrap();
-        std::fs::write(dir.path().join("Cargo.toml"), "[package]\nname = \"mixed\"\n").unwrap();
+        std::fs::write(
+            dir.path().join("Cargo.toml"),
+            "[package]\nname = \"mixed\"\n",
+        )
+        .unwrap();
         std::fs::write(dir.path().join("package.json"), "{}").unwrap();
         std::fs::write(dir.path().join("pyproject.toml"), "").unwrap();
 
-        let ws = workspace::discover(dir.path(), &config::CleanConfig::default().languages).unwrap();
+        let ws =
+            workspace::discover(dir.path(), &config::CleanConfig::default().languages).unwrap();
         let names: Vec<_> = ws.projects.iter().map(|p| p.system.name()).collect();
         assert!(names.contains(&"cargo"));
         assert!(names.contains(&"node"));

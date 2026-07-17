@@ -17,6 +17,8 @@ pub struct Config {
     #[serde(default)]
     pub status: StatusConfig,
     #[serde(default)]
+    pub tts: TtsConfig,
+    #[serde(default)]
     pub auto_clean: AutoCleanConfig,
 }
 
@@ -115,12 +117,42 @@ pub struct SweepConfig {
     pub go_build_cache: bool,
     #[serde(default = "default_false")]
     pub swift_derived_data: bool,
+    #[serde(default = "default_false")]
+    pub nuget_cache: bool,
+    #[serde(default = "default_false")]
+    pub bun_cache: bool,
+    #[serde(default = "default_false")]
+    pub maven_repository: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StatusConfig {
     #[serde(default = "default_ten")]
     pub warn_free_percent: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TtsConfig {
+    #[serde(default = "default_false")]
+    pub enabled: bool,
+    #[serde(default = "default_tts_provider")]
+    pub provider: String,
+    #[serde(default = "default_tts_voice_id")]
+    pub voice_id: String,
+    #[serde(default = "default_tts_model_id")]
+    pub model_id: String,
+    #[serde(default = "default_tts_output_format")]
+    pub output_format: String,
+    #[serde(default = "default_tts_base_url")]
+    pub base_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub api_key_env: Option<String>,
+    #[serde(default = "default_tts_announce")]
+    pub announce: Vec<String>,
+    #[serde(default = "default_tts_timeout_secs")]
+    pub timeout_secs: u64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -213,6 +245,9 @@ impl Default for SweepConfig {
             python_bytecode: true,
             go_build_cache: false,
             swift_derived_data: false,
+            nuget_cache: false,
+            bun_cache: false,
+            maven_repository: false,
         }
     }
 }
@@ -221,6 +256,23 @@ impl Default for StatusConfig {
     fn default() -> Self {
         StatusConfig {
             warn_free_percent: 10,
+        }
+    }
+}
+
+impl Default for TtsConfig {
+    fn default() -> Self {
+        TtsConfig {
+            enabled: false,
+            provider: default_tts_provider(),
+            voice_id: default_tts_voice_id(),
+            model_id: default_tts_model_id(),
+            output_format: default_tts_output_format(),
+            base_url: default_tts_base_url(),
+            api_key: None,
+            api_key_env: None,
+            announce: default_tts_announce(),
+            timeout_secs: default_tts_timeout_secs(),
         }
     }
 }
@@ -247,6 +299,38 @@ fn default_thirty() -> u64 {
 
 fn default_ten() -> u64 {
     10
+}
+
+fn default_tts_provider() -> String {
+    "elevenlabs".to_string()
+}
+
+fn default_tts_voice_id() -> String {
+    "21m00Tcm4TlvDq8ikWAM".to_string()
+}
+
+fn default_tts_model_id() -> String {
+    "eleven_multilingual_v2".to_string()
+}
+
+fn default_tts_output_format() -> String {
+    "mp3_44100_128".to_string()
+}
+
+fn default_tts_base_url() -> String {
+    "https://api.elevenlabs.io".to_string()
+}
+
+fn default_tts_announce() -> Vec<String> {
+    vec![
+        "clean".to_string(),
+        "sweep".to_string(),
+        "auto_clean".to_string(),
+    ]
+}
+
+fn default_tts_timeout_secs() -> u64 {
+    30
 }
 
 fn default_scan_paths() -> Vec<PathBuf> {
@@ -348,9 +432,7 @@ where
         type Value = Option<u64>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter.write_str(
-                "an integer number of bytes or a human-size string like \"5GB\"",
-            )
+            formatter.write_str("an integer number of bytes or a human-size string like \"5GB\"")
         }
 
         fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
@@ -389,8 +471,7 @@ where
         type Value = Option<u64>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-            formatter
-                .write_str("an integer number of seconds or a duration string like \"1h30m\"")
+            formatter.write_str("an integer number of seconds or a duration string like \"1h30m\"")
         }
 
         fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
@@ -474,8 +555,14 @@ mod tests {
         assert_eq!(parse_human_size("1024").unwrap(), 1024);
         assert_eq!(parse_human_size("1KB").unwrap(), 1024);
         assert_eq!(parse_human_size("2MB").unwrap(), 2 * 1024 * 1024);
-        assert_eq!(parse_human_size("1.5GB").unwrap(), (1.5 * (1024.0f64).powi(3)) as u64);
-        assert_eq!(parse_human_size("1tb").unwrap(), 1024u64 * 1024 * 1024 * 1024);
+        assert_eq!(
+            parse_human_size("1.5GB").unwrap(),
+            (1.5 * (1024.0f64).powi(3)) as u64
+        );
+        assert_eq!(
+            parse_human_size("1tb").unwrap(),
+            1024u64 * 1024 * 1024 * 1024
+        );
         assert_eq!(
             parse_human_size("1pb").unwrap(),
             1024u64 * 1024 * 1024 * 1024 * 1024
@@ -524,7 +611,10 @@ cooldown = "30m"
 
         let cfg = Config::load(&path).unwrap();
         assert!(cfg.auto_clean.enabled);
-        assert_eq!(cfg.auto_clean.clutter_tolerance, Some(5 * 1024 * 1024 * 1024));
+        assert_eq!(
+            cfg.auto_clean.clutter_tolerance,
+            Some(5 * 1024 * 1024 * 1024)
+        );
         assert_eq!(cfg.auto_clean.min_free_space, Some(10 * 1024 * 1024 * 1024));
         assert_eq!(cfg.auto_clean.cooldown, Some(5400));
         assert_eq!(
@@ -542,6 +632,17 @@ cooldown = "30m"
         assert_eq!(cfg.auto_clean.cooldown, None);
         assert!(cfg.auto_clean.projects.is_empty());
         assert_eq!(cfg.auto_clean.scan_paths.len(), 4);
+    }
+
+    #[test]
+    fn tts_defaults_are_safe() {
+        let cfg = Config::default();
+        assert!(!cfg.tts.enabled);
+        assert_eq!(cfg.tts.provider, "elevenlabs");
+        assert!(cfg.tts.api_key.is_none());
+        assert!(cfg.tts.api_key_env.is_none());
+        assert!(cfg.tts.announce.contains(&"clean".to_string()));
+        assert_eq!(cfg.tts.timeout_secs, 30);
     }
 
     #[test]

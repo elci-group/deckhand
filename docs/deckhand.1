@@ -8,8 +8,8 @@ deckhand \- deterministic multi-language build-surface maintenance and hygiene a
 .IR COMMAND " [" ARGS "]"
 .SH DESCRIPTION
 .B deckhand
-keeps build artifacts, caches, and generated outputs clean across Cargo, Node.js,
-Python, Go, Swift, and Gradle projects. It discovers build systems, reports disk
+keeps build artifacts, caches, and generated outputs clean across Cargo, Node.js/Bun,
+Python, Go, Swift, Gradle, .NET, and Maven projects. It discovers build systems, reports disk
 usage, runs native clean commands, prunes stale artifacts, and can auto-clean
 projects when configured thresholds are met.
 .PP
@@ -26,6 +26,26 @@ for the current project.
 .TP
 .BR status " [\fB\-j\fR|\fB\-\-json\fR] [\fB\-l\fR|\fB\-\-limit\fR " \fIN\fR]
 Report disk usage of build artifacts and caches.
+.TP
+.BR inspect " [\fB\-\-scope\fR " \fIhome\fR|\fIroot\fR] [\fB\-\-path\fR " \fIDIR\fR] [\fB\-\-min\-size\fR " \fISIZE\fR] [\fB\-j\fR|\fB\-\-json\fR]
+Scan a filesystem subtree for Rust projects (directories containing a
+.IR Cargo.toml )
+and report which are candidates for cleaning. A project is a candidate when it has
+a non-empty
+.I target/
+build directory; the reported extent is its reclaimable size with a
+.IR debug / release
+breakdown. The scan is read-only. The default scope is
+.I home
+($HOME); use
+.B \-\-scope\ root
+to scan the whole filesystem from
+.I /
+(confined to the root filesystem and skipping pseudo-filesystems), or
+.B \-\-path
+to choose an explicit directory (a leading
+.I ~
+is expanded).
 .TP
 .BR clean " [\fB\-p\fR|\fB\-\-profile\fR " \fIPROFILE\fR] [\fB\-\-dry\-run\fR] [\fB\-o\fR|\fB\-\-older\-than\fR " \fIDAYS\fR] [\fB\-t\fR|\fB\-\-target\-dir\fR " \fIPATH\fR]
 Run native clean commands across all detected build systems in the workspace.

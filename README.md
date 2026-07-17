@@ -34,6 +34,9 @@ deckhand init
 # Show disk usage of build artifacts and caches
 deckhand status
 
+# Find Rust projects and how much space their target/ dirs use
+deckhand inspect
+
 # Clean build artifacts across all detected languages
 deckhand clean
 
@@ -58,6 +61,8 @@ Deckhand detects and cleans build artifacts for:
 - **Go** (`go.mod`, `go.work`) — `go clean`
 - **Swift** (`Package.swift`) — `swift package clean`
 - **Gradle** (`build.gradle[.kts]`) — `./gradlew clean` / `gradle clean`
+- **.NET** (`*.csproj`/`*.fsproj`/`*.vbproj`/`*.sln`) — `dotnet clean`
+- **Maven** (`pom.xml`) — `mvn clean`
 
 See [docs/LANGUAGES.md](docs/LANGUAGES.md) for the full manifest/artifact matrix.
 
@@ -67,6 +72,7 @@ See [docs/LANGUAGES.md](docs/LANGUAGES.md) for the full manifest/artifact matrix
 |---------|---------|
 | `deckhand init` | Generate `deckhand.toml` and `.deckhandignore` |
 | `deckhand status` | Report build artifact/cache disk usage |
+| `deckhand inspect` | Scan for Rust projects and report cleaning candidates |
 | `deckhand clean` | Run native clean commands across detected build systems |
 | `deckhand sweep` | Prune stale build artifacts and caches |
 | `deckhand auto-clean` | Clean matched projects when clutter/free-space thresholds are met |
@@ -102,6 +108,15 @@ swift_derived_data = false
 [status]
 warn_free_percent = 10
 
+# [tts]
+# enabled = true
+# provider = "elevenlabs"
+# voice_id = "21m00Tcm4TlvDq8ikWAM"
+# model_id = "eleven_multilingual_v2"
+# output_format = "mp3_44100_128"
+# announce = ["clean", "sweep", "auto_clean"]
+# api_key_env = "ELEVENLABS_API_KEY"
+
 [auto_clean]
 enabled = false
 scan_paths = ["/bin", "/usr/bin", "/usr/local/bin", "~/.local/bin"]
@@ -116,6 +131,42 @@ scan_paths = ["/bin", "/usr/bin", "/usr/local/bin", "~/.local/bin"]
 ### Backward compatibility
 
 Existing `deckhand.toml` files that do not specify `[clean].languages` continue to run only the Cargo driver, preserving previous Cargo-only behavior. New projects or configs without a `deckhand.toml` file enable all language drivers by default.
+
+## ElevenLabs TTS
+
+Deckhand can speak short completion summaries with ElevenLabs. It is disabled by
+default and never fails a command if synthesis or playback is unavailable.
+
+Enable it in `deckhand.toml`:
+
+```toml
+[tts]
+enabled = true
+provider = "elevenlabs"
+announce = ["clean", "sweep", "auto_clean"]
+api_key_env = "ELEVENLABS_API_KEY"
+```
+
+Or force it for one run:
+
+```bash
+deckhand --tts clean
+deckhand --tts --tts-voice 21m00Tcm4TlvDq8ikWAM sweep --dry-run
+```
+
+API keys are resolved in this order:
+
+1. `--tts-api-key` / `DECKHAND_TTS_API_KEY`
+2. Project `deckhand.toml` `[tts].api_key` or `[tts].api_key_env`
+3. Project `.env` (`DECKHAND_TTS_API_KEY` or `ELEVENLABS_API_KEY`)
+4. Top-level `~/.config/deckhand/deckhand.toml` `[tts]`
+5. User environment / shell files: `ELEVENLABS_API_KEY` from the environment,
+   `~/.bashrc`, `~/.zshrc`, or `~/.profile`
+
+The integration shells out to `curl` and a local audio player (`ffplay`,
+`mpg123`, `mplayer`, `play`, `paplay`, or `aplay`), so it adds no Rust
+dependencies. Keep API keys out of version control; prefer `.env`,
+`api_key_env`, or the top-level deckhand config for shared machines.
 
 ## Documentation
 

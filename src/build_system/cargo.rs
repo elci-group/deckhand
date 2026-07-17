@@ -10,6 +10,15 @@ use crate::fmt;
 #[derive(Debug)]
 pub struct Cargo;
 
+/// Map a deckhand profile name to the name cargo expects. Cargo reserves
+/// `debug`; debug build artifacts belong to the `dev` profile.
+fn cargo_profile_name(profile: &str) -> &str {
+    match profile {
+        "debug" => "dev",
+        other => other,
+    }
+}
+
 impl BuildSystem for Cargo {
     fn name(&self) -> &'static str {
         "cargo"
@@ -61,7 +70,7 @@ impl BuildSystem for Cargo {
                     .arg(&manifest);
                 if let Some(profile) = &ctx.profile {
                     if profile != "all" {
-                        cmd.arg("--profile").arg(profile);
+                        cmd.arg("--profile").arg(cargo_profile_name(profile));
                     }
                 }
                 if let Some(td) = &ctx.target_dir {
@@ -145,5 +154,12 @@ mod tests {
         fs::create_dir(dir.path().join("target")).unwrap();
         let arts = Cargo.artifacts(dir.path());
         assert_eq!(arts, vec![dir.path().join("target")]);
+    }
+
+    #[test]
+    fn maps_debug_profile_to_dev() {
+        assert_eq!(cargo_profile_name("debug"), "dev");
+        assert_eq!(cargo_profile_name("release"), "release");
+        assert_eq!(cargo_profile_name("all"), "all");
     }
 }

@@ -36,8 +36,9 @@ pub fn run(
     dry_run: bool,
     older_than: Option<u64>,
     target_dir: Option<&Path>,
-) -> Result<()> {
+) -> Result<String> {
     let ws = workspace::discover(&cfg.workspace.path, &cfg.clean.languages)?;
+    let project_count = ws.projects.len();
 
     fmt::banner("Deckhand: clean");
     println!("Workspace root: {}", ws.root.display());
@@ -51,6 +52,7 @@ pub fn run(
     println!();
 
     let mut total_freed = 0u64;
+    let mut failed = 0usize;
     for project in &ws.projects {
         match clean_project(project, cfg, profile, dry_run, older_than, target_dir) {
             Ok(result) => {
@@ -58,6 +60,7 @@ pub fn run(
                 print_result(project, &result, dry_run);
             }
             Err(e) => {
+                failed += 1;
                 eprintln!(
                     "  {} {}: {}",
                     "error".red().bold(),
@@ -76,7 +79,28 @@ pub fn run(
         );
     }
 
-    Ok(())
+    let mut summary = if dry_run {
+        format!(
+            "dry run would clean {} project(s); total reclaimable {}; profile {}",
+            project_count,
+            fmt::human_size(total_freed),
+            profile
+        )
+    } else {
+        format!(
+            "cleaned {} project(s); total freed {}; profile {}",
+            project_count,
+            fmt::human_size(total_freed),
+            profile
+        )
+    };
+    if let Some(days) = older_than {
+        summary.push_str(&format!("; age filter older than {} day(s)", days));
+    }
+    if failed > 0 {
+        anyhow::bail!("{} of {} project(s) failed to clean", failed, project_count);
+    }
+    Ok(summary)
 }
 
 fn print_result(project: &workspace::Project, result: &CleanResult, dry_run: bool) {
