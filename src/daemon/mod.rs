@@ -56,10 +56,10 @@ extern "C" fn on_signal(sig: i32) {
 #[cfg(unix)]
 fn install_signal_handlers() {
     unsafe {
-        libc::signal(libc::SIGTERM, on_signal as libc::sighandler_t);
-        libc::signal(libc::SIGINT, on_signal as libc::sighandler_t);
-        libc::signal(libc::SIGHUP, on_signal as libc::sighandler_t);
-        libc::signal(libc::SIGUSR1, on_signal as libc::sighandler_t);
+        libc::signal(libc::SIGTERM, on_signal as *const () as libc::sighandler_t);
+        libc::signal(libc::SIGINT, on_signal as *const () as libc::sighandler_t);
+        libc::signal(libc::SIGHUP, on_signal as *const () as libc::sighandler_t);
+        libc::signal(libc::SIGUSR1, on_signal as *const () as libc::sighandler_t);
     }
 }
 

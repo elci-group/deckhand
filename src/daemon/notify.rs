@@ -372,6 +372,7 @@ fn find_in_path(program: &str) -> bool {
 }
 
 /// Whether a D-Bus session bus looks reachable.
+#[cfg(feature = "dbus")]
 fn session_bus_available() -> bool {
     if std::env::var_os("DBUS_SESSION_BUS_ADDRESS").is_some() {
         return true;
