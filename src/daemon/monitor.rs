@@ -83,10 +83,11 @@ pub fn deep_scan(cfg: &Config) -> Result<DeepScan> {
                     continue;
                 }
                 bytes += fmt::dir_size(&dir).unwrap_or(0);
+                let mtime = dir_mtime(&dir);
                 watches.push(ArtifactWatch {
                     dir,
                     project: project.path.clone(),
-                    mtime: dir_mtime(watches_dir(watches.last().map(|_: &ArtifactWatch| ()))),
+                    mtime,
                 });
             }
             if bytes > 0 {
@@ -225,12 +226,6 @@ fn new_suggestion_id() -> String {
         .wrapping_mul(0x9E37_79B9_7F4A_7C15)
         ^ (std::process::id() as u64) << 32;
     format!("{:08x}", (raw >> 16) as u32)
-}
-
-// Helper used inside deep_scan's watch construction; kept separate to make the
-// borrow checker happy without restructuring the loop.
-fn watches_dir(_: Option<()>) -> &'static Path {
-    Path::new("")
 }
 
 #[cfg(test)]
