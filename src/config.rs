@@ -22,6 +22,8 @@ pub struct Config {
     pub auto_clean: AutoCleanConfig,
     #[serde(default)]
     pub update: UpdateConfig,
+    #[serde(default)]
+    pub daemon: DaemonConfig,
 }
 
 pub use crate::update::UpdateConfig;
@@ -203,6 +205,101 @@ pub struct ProjectOverride {
     pub cooldown: Option<u64>,
 }
 
+/// Monitoring-daemon configuration. All cadences/thresholds are optional and
+/// fall back to the defaults exposed by the accessor methods.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DaemonConfig {
+    #[serde(default = "default_false")]
+    pub enabled: bool,
+    /// Deep-scan cadence; default 6h.
+    #[serde(default, deserialize_with = "deserialize_duration_opt")]
+    pub scan_interval: Option<u64>,
+    /// Cheap-check cadence (statvfs + artifact mtimes); default 60s.
+    #[serde(default, deserialize_with = "deserialize_duration_opt")]
+    pub watch_interval: Option<u64>,
+    /// Quiet window after the last artifact change before a deep scan; default 5m.
+    #[serde(default, deserialize_with = "deserialize_duration_opt")]
+    pub debounce: Option<u64>,
+    /// Minimum total reclaimable bytes before suggesting a cleanup; default 2GB.
+    #[serde(default, deserialize_with = "deserialize_human_size_opt")]
+    pub notify_threshold: Option<u64>,
+    /// Suggest when filesystem free space drops below this percent.
+    /// Defaults to [status].warn_free_percent.
+    #[serde(default)]
+    pub min_free_percent: Option<u64>,
+    /// Also offer [Clean now] on the first notification (skip the review step).
+    #[serde(default = "default_false")]
+    pub fast_path: bool,
+    /// Unattended mode: clean automatically when thresholds are crossed.
+    /// Ships disabled; the daemon never deletes without confirmation otherwise.
+    #[serde(default = "default_false")]
+    pub auto_clean: bool,
+    #[serde(default = "default_notify_backend")]
+    pub notify_backend: String,
+    /// Default snooze length for the [Snooze] action; default 1d.
+    #[serde(default, deserialize_with = "deserialize_duration_opt")]
+    pub snooze_duration: Option<u64>,
+    /// Extra workspace roots to monitor besides [workspace].path.
+    #[serde(default)]
+    pub watch_paths: Vec<PathBuf>,
+}
+
+pub const DEFAULT_SCAN_INTERVAL_SECS: u64 = 6 * 3600;
+pub const DEFAULT_WATCH_INTERVAL_SECS: u64 = 60;
+pub const DEFAULT_DEBOUNCE_SECS: u64 = 5 * 60;
+pub const DEFAULT_NOTIFY_THRESHOLD_BYTES: u64 = 2 * 1024 * 1024 * 1024;
+pub const DEFAULT_SNOOZE_SECS: u64 = 24 * 3600;
+
+impl DaemonConfig {
+    pub fn scan_interval_secs(&self) -> u64 {
+        self.scan_interval.unwrap_or(DEFAULT_SCAN_INTERVAL_SECS)
+    }
+
+    pub fn watch_interval_secs(&self) -> u64 {
+        self.watch_interval.unwrap_or(DEFAULT_WATCH_INTERVAL_SECS)
+    }
+
+    pub fn debounce_secs(&self) -> u64 {
+        self.debounce.unwrap_or(DEFAULT_DEBOUNCE_SECS)
+    }
+
+    pub fn notify_threshold_bytes(&self) -> u64 {
+        self.notify_threshold.unwrap_or(DEFAULT_NOTIFY_THRESHOLD_BYTES)
+    }
+
+    pub fn snooze_duration_secs(&self) -> u64 {
+        self.snooze_duration.unwrap_or(DEFAULT_SNOOZE_SECS)
+    }
+
+    /// Effective low-free-space percent: explicit value, else the status warning.
+    pub fn free_percent_floor(&self, status: &StatusConfig) -> u64 {
+        self.min_free_percent.unwrap_or(status.warn_free_percent)
+    }
+
+    /// Return watch paths with a leading `~` expanded to `$HOME`.
+    pub fn resolved_watch_paths(&self) -> Vec<PathBuf> {
+        self.watch_paths.iter().map(|p| expand_tilde(p)).collect()
+    }
+}
+
+impl Default for DaemonConfig {
+    fn default() -> Self {
+        DaemonConfig {
+            enabled: false,
+            scan_interval: None,
+            watch_interval: None,
+            debounce: None,
+            notify_threshold: None,
+            min_free_percent: None,
+            fast_path: false,
+            auto_clean: false,
+            notify_backend: default_notify_backend(),
+            snooze_duration: None,
+            watch_paths: Vec::new(),
+        }
+    }
+}
+
 impl Default for AutoCleanConfig {
     fn default() -> Self {
         AutoCleanConfig {
@@ -344,6 +441,10 @@ fn default_scan_paths() -> Vec<PathBuf> {
         PathBuf::from("/usr/local/bin"),
         PathBuf::from("~/.local/bin"),
     ]
+}
+
+fn default_notify_backend() -> String {
+    "auto".to_string()
 }
 
 /// Parse a human-readable byte size such as "5GB", "1.5MB", or "1024".
