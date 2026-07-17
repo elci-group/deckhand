@@ -41,14 +41,18 @@ pub fn run(
     let ws = workspace::discover(&cfg.workspace.path, &cfg.clean.languages)?;
     let project_count = ws.projects.len();
 
-    fmt::banner("Deckhand: clean");
-    println!("Workspace root: {}", ws.root.display());
-    println!("Profile: {}", profile.bold());
+    fmt::banner(&emoji::label(emoji::CLEAN, "Deckhand: clean"));
+    println!("{} Workspace root: {}", emoji::e(emoji::FOLDER), ws.root.display());
+    println!("{} Profile: {}", emoji::e(emoji::PACKAGE), profile.bold());
     if let Some(days) = older_than {
-        println!("Age filter: older than {} days", days);
+        println!("{} Age filter: older than {} days", emoji::e(emoji::CLOCK), days);
     }
     if dry_run {
-        println!("{}", "[dry-run] no files will be removed".yellow());
+        println!(
+            "{} {}",
+            emoji::e(emoji::INFO),
+            "[dry-run] no files will be removed".yellow()
+        );
     }
     println!();
 
@@ -63,7 +67,8 @@ pub fn run(
             Err(e) => {
                 failed += 1;
                 eprintln!(
-                    "  {} {}: {}",
+                    "  {}{} {}: {}",
+                    emoji::s(emoji::ERROR),
                     "error".red().bold(),
                     project.name,
                     e
