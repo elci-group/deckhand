@@ -37,6 +37,9 @@ deckhand status
 # Find Rust projects and how much space their target/ dirs use
 deckhand inspect
 
+# Preview a system-wide clean of every Cargo project
+deckhand deep-clean --dry-run
+
 # Clean build artifacts across all detected languages
 deckhand clean
 
