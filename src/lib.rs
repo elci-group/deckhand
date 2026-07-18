@@ -5,6 +5,7 @@ pub mod clean;
 pub mod color;
 pub mod config;
 pub mod daemon;
+pub mod deep_clean;
 pub mod emoji;
 pub mod fmt;
 pub mod fs;

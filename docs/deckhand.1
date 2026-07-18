@@ -47,6 +47,20 @@ to choose an explicit directory (a leading
 .I ~
 is expanded).
 .TP
+.BR deep\-clean " [\fB\-\-scope\fR " \fIhome\fR|\fIroot\fR] [\fB\-\-path\fR " \fIDIR\fR] [\fB\-\-dry\-run\fR] [\fB\-\-yes\fR]
+Clean every Cargo project found under the scan root: runs
+.B cargo clean
+on each project with a non-empty
+.I target/
+directory. Uses the same scan and scope options as
+.BR inspect .
+Because this reaches across the whole scan root rather than the current
+workspace, deletion requires
+.BR \-\-yes ;
+without it the command only reports what is at stake.
+.B \-\-dry\-run
+previews what would be removed.
+.TP
 .BR clean " [\fB\-p\fR|\fB\-\-profile\fR " \fIPROFILE\fR] [\fB\-\-dry\-run\fR] [\fB\-o\fR|\fB\-\-older\-than\fR " \fIDAYS\fR] [\fB\-t\fR|\fB\-\-target\-dir\fR " \fIPATH\fR]
 Run native clean commands across all detected build systems in the workspace.
 .I PROFILE

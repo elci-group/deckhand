@@ -73,6 +73,7 @@ See [docs/LANGUAGES.md](docs/LANGUAGES.md) for the full manifest/artifact matrix
 | `deckhand init` | Generate `deckhand.toml` and `.deckhandignore` |
 | `deckhand status` | Report build artifact/cache disk usage |
 | `deckhand inspect` | Scan for Rust projects and report cleaning candidates |
+| `deckhand deep-clean` | Clean every Cargo project found on the system (requires `--yes`) |
 | `deckhand clean` | Run native clean commands across detected build systems |
 | `deckhand sweep` | Prune stale build artifacts and caches |
 | `deckhand auto-clean` | Clean matched projects when clutter/free-space thresholds are met |

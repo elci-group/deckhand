@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand, ValueEnum};
-use deckhand::{auto_clean, auto_start, clean, color, config, daemon, emoji, init, inspect, status, sweep, tts, update};
+use deckhand::{auto_clean, auto_start, clean, color, config, daemon, deep_clean, emoji, init, inspect, status, sweep, tts, update};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -120,6 +120,25 @@ enum Commands {
         /// Output JSON instead of text
         #[arg(short, long)]
         json: bool,
+    },
+
+    /// Clean every Cargo project found on the system (requires --yes)
+    DeepClean {
+        /// Scan scope: home (~) or the whole filesystem (root)
+        #[arg(long, value_enum, default_value = "home")]
+        scope: InspectScope,
+
+        /// Explicit scan root; overrides --scope and expands a leading ~
+        #[arg(long)]
+        path: Option<PathBuf>,
+
+        /// Only print what would be removed
+        #[arg(long)]
+        dry_run: bool,
+
+        /// Actually remove build artifacts (confirmation gate)
+        #[arg(long)]
+        yes: bool,
     },
 
     /// Initialize deckhand.toml for the current project
@@ -304,6 +323,25 @@ fn main() -> Result<()> {
                 json,
                 same_file_system,
             })?;
+        }
+        Commands::DeepClean {
+            scope,
+            path,
+            dry_run,
+            yes,
+        } => {
+            let cfg = config::Config::load_or_default(cli.config)?;
+            let (scan_root, same_file_system) = resolve_scan_root(scope, path)?;
+            let summary = deep_clean::run(
+                &cfg,
+                &deep_clean::DeepCleanOptions {
+                    scan_root,
+                    dry_run,
+                    yes,
+                    same_file_system,
+                },
+            )?;
+            tts::announce(&cfg, &tts_overrides, "deep_clean", &summary);
         }
         Commands::Init { force } => {
             init::run(force)?;

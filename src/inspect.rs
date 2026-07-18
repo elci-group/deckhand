@@ -75,7 +75,9 @@ pub fn run(opts: &InspectOptions) -> Result<()> {
 /// and so individual directories can be pruned. Directory reads and metadata
 /// lookups that fail (permissions, races) are skipped rather than aborting the
 /// whole scan, mirroring the tolerant traversal used by `status` and `fmt`.
-fn scan(root: &Path, same_file_system: bool) -> Vec<Finding> {
+///
+/// Shared with `deep-clean`, which cleans the candidates this scan finds.
+pub(crate) fn scan(root: &Path, same_file_system: bool) -> Vec<Finding> {
     let mut findings = Vec::new();
     let mut stack: Vec<PathBuf> = vec![root.to_path_buf()];
 
