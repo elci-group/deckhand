@@ -23,6 +23,7 @@ dbus = ["dep:notify-rust"]
 anyhow = "1"
 chrono = { version = "0.4", features = ["clock", "serde"] }
 clap = { version = "4", features = ["derive"] }
+form3 = { path = "../3form" }
 libc = "0.2"
 notify-rust = { version = "4", optional = true }
 serde = { version = "1", features = ["derive"] }

@@ -11,6 +11,7 @@ pub mod fmt;
 pub mod fs;
 pub mod init;
 pub mod inspect;
+pub mod ownership;
 pub mod spinner;
 pub mod status;
 pub mod sweep;

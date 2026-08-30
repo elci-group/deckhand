@@ -1,0 +1,18 @@
+project = "deckhand"
+
+[tools.deckhand]
+enabled = true
+binary = "/home/sal/.local/bin/deckhand"
+description = "Deterministic build-surface maintenance and hygiene agent for Cargo, Node/Bun, Python, Go, Swift, Gradle, .NET, and Maven projects"
+commands = [
+  "clean",
+  "sweep",
+  "status",
+  "inspect",
+  "deep-clean",
+  "init",
+  "auto-clean",
+  "daemon",
+  "update",
+  "capabilities",
+]

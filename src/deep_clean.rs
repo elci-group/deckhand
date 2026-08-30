@@ -19,6 +19,7 @@ use crate::config::Config;
 use crate::emoji;
 use crate::fmt;
 use crate::inspect::{self, Finding};
+use crate::ownership;
 use crate::spinner;
 
 #[derive(Debug, Clone)]
@@ -32,6 +33,8 @@ pub struct DeepCleanOptions {
     pub yes: bool,
     /// Stay on the scan root's filesystem (used for `--scope root`).
     pub same_file_system: bool,
+    /// Print ownership fix commands instead of cleaning
+    pub fix_ownership: bool,
 }
 
 pub fn run(cfg: &Config, opts: &DeepCleanOptions) -> Result<String> {
@@ -74,6 +77,10 @@ pub fn run(cfg: &Config, opts: &DeepCleanOptions) -> Result<String> {
 
     if opts.dry_run {
         return Ok(dry_run_report(&findings));
+    }
+
+    if opts.fix_ownership {
+        return fix_ownership_all(&findings);
     }
 
     if !opts.yes {
@@ -142,7 +149,24 @@ fn clean_all(cfg: &Config, findings: &[Finding]) -> Result<String> {
 
     let mut total_freed = 0u64;
     let mut failed = 0usize;
+    let mut preserved_count = 0usize;
+    
     for f in findings {
+        let target_dir = f.path.join("target");
+        
+        // Check for ownership issues before attempting to clean (only if .dhnotes exists)
+        if let Ok(Some(notes)) = ownership::DhNotes::read_from_dir(&target_dir) {
+            preserved_count += 1;
+            eprintln!(
+                "  {}{} {}: {}",
+                emoji::s(emoji::WARNING),
+                "preserved".yellow().bold(),
+                f.name,
+                notes.reason
+            );
+            continue; // Skip cleaning this project
+        }
+        
         match cargo.clean(&f.path, &ctx) {
             Ok(result) => {
                 total_freed += result.bytes_freed;
@@ -173,6 +197,14 @@ fn clean_all(cfg: &Config, findings: &[Finding]) -> Result<String> {
         emoji::e(emoji::DISK),
         fmt::human_size(total_freed).green().bold()
     );
+    
+    if preserved_count > 0 {
+        println!(
+            "{} Preserved directories: {} (protected by .dhnotes)",
+            emoji::e(emoji::WARNING),
+            preserved_count.to_string().yellow().bold()
+        );
+    }
 
     if failed > 0 {
         anyhow::bail!("{} of {} project(s) failed to clean", failed, findings.len());
@@ -181,6 +213,91 @@ fn clean_all(cfg: &Config, findings: &[Finding]) -> Result<String> {
         "deep-clean cleaned {} project(s); total freed {}",
         findings.len(),
         fmt::human_size(total_freed)
+    ))
+}
+
+/// Scan for ownership issues and print deterministic chown commands
+fn fix_ownership_all(findings: &[Finding]) -> Result<String> {
+    fmt::banner(&emoji::label(emoji::WARNING, "Deckhand: ownership fix"));
+    println!("{} Scanning for ownership issues...", emoji::e(emoji::SEARCH));
+    println!();
+    
+    let mut fix_commands = Vec::new();
+    let mut preserved_notes = Vec::new();
+    
+    for f in findings {
+        let target_dir = f.path.join("target");
+        if !target_dir.exists() {
+            continue;
+        }
+        
+        // Check for ownership issues using the helper function
+        if let Some(issue) = ownership::check_ownership_issues(&target_dir) {
+            if issue.repair_command.is_empty() {
+                // This is a .dhnotes preservation case
+                if let Ok(Some(notes)) = ownership::DhNotes::read_from_dir(&target_dir) {
+                    let reason = notes.reason.clone();
+                    preserved_notes.push((f.name.clone(), notes));
+                    println!(
+                        "  {}{} {} - preserved",
+                        emoji::s(emoji::INFO),
+                        f.name.cyan(),
+                        target_dir.display()
+                    );
+                    println!("      Reason: {}", reason.dimmed());
+                }
+            } else {
+                // This is an ownership issue that needs fixing
+                fix_commands.push((f.name.clone(), target_dir.clone(), issue.repair_command.clone()));
+                
+                println!(
+                    "  {}{} {} - {}",
+                    emoji::s(emoji::WARNING),
+                    f.name.cyan(),
+                    target_dir.display(),
+                    issue.error
+                );
+                if let Some(owner) = &issue.current_owner {
+                    println!("      Current owner: {}", owner.yellow());
+                }
+                println!("      Fix: {}", issue.repair_command.cyan());
+            }
+        }
+    }
+    
+    println!();
+    
+    if fix_commands.is_empty() && preserved_notes.is_empty() {
+        println!("{} No ownership issues found.", emoji::e(emoji::INFO));
+        return Ok("ownership fix found no issues".to_string());
+    }
+    
+    if !preserved_notes.is_empty() {
+        println!(
+            "{} {} directories preserved by .dhnotes",
+            emoji::e(emoji::INFO),
+            preserved_notes.len()
+        );
+    }
+    
+    if !fix_commands.is_empty() {
+        println!(
+            "{} {} ownership issue(s) found. Run the following commands to fix:",
+            emoji::e(emoji::WARNING),
+            fix_commands.len()
+        );
+        println!();
+        for (_, _, cmd) in &fix_commands {
+            println!("{}", cmd.cyan());
+        }
+        println!();
+        println!("After running these commands, you can retry: deckhand deep-clean --yes");
+    }
+    
+    Ok(format!(
+        "ownership fix found {} issue(s) and {} preserved directory(s)",
+        fix_commands.len(),
+        preserved_notes.len()
     ))
 }
 
@@ -223,6 +340,7 @@ mod tests {
                 dry_run: true,
                 yes: false,
                 same_file_system: false,
+                fix_ownership: false,
             },
         )
         .unwrap();
@@ -243,6 +361,7 @@ mod tests {
                 dry_run: false,
                 yes: false,
                 same_file_system: false,
+                fix_ownership: false,
             },
         )
         .unwrap();
@@ -266,6 +385,7 @@ mod tests {
                 dry_run: false,
                 yes: true,
                 same_file_system: false,
+                fix_ownership: false,
             },
         )
         .unwrap();
@@ -285,6 +405,7 @@ mod tests {
                 dry_run: false,
                 yes: true,
                 same_file_system: false,
+                fix_ownership: false,
             },
         )
         .unwrap();

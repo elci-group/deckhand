@@ -139,6 +139,10 @@ enum Commands {
         /// Actually remove build artifacts (confirmation gate)
         #[arg(long)]
         yes: bool,
+
+        /// Print ownership fix commands instead of cleaning
+        #[arg(long)]
+        fix_ownership: bool,
     },
 
     /// Initialize deckhand.toml for the current project
@@ -181,6 +185,9 @@ enum Commands {
         #[arg(long)]
         yes: bool,
     },
+
+    /// Emit the project capability manifest as JSON
+    Capabilities,
 }
 
 #[derive(Subcommand)]
@@ -329,6 +336,7 @@ fn main() -> Result<()> {
             path,
             dry_run,
             yes,
+            fix_ownership,
         } => {
             let cfg = config::Config::load_or_default(cli.config)?;
             let (scan_root, same_file_system) = resolve_scan_root(scope, path)?;
@@ -339,6 +347,7 @@ fn main() -> Result<()> {
                     dry_run,
                     yes,
                     same_file_system,
+                    fix_ownership,
                 },
             )?;
             tts::announce(&cfg, &tts_overrides, "deep_clean", &summary);
@@ -407,8 +416,51 @@ fn main() -> Result<()> {
             let cfg = config::Config::load_or_default(cli.config)?;
             update::run(&cfg.update, update::UpdateOptions { dry_run, force, yes })?;
         }
+        Commands::Capabilities => {
+            print_capabilities()?;
+        }
     }
 
+    Ok(())
+}
+
+/// Emit the Speck-compatible capability manifest for this project.
+fn print_capabilities() -> Result<()> {
+    let manifest_path = std::path::PathBuf::from(".speck/manifest.toml");
+    let manifest_text = std::fs::read_to_string(&manifest_path)?;
+    let manifest: toml::Table = toml::from_str(&manifest_text)?;
+    let project = manifest
+        .get("project")
+        .and_then(|v| v.as_str())
+        .unwrap_or("deckhand")
+        .to_string();
+
+    let mut tools = serde_json::json!({});
+    if let Some(tools_table) = manifest.get("tools").and_then(|v| v.as_table()) {
+        for (name, config) in tools_table {
+            let mut tool_obj = serde_json::json!({"available": true});
+            if let Some(table) = config.as_table() {
+                if let Some(description) = table.get("description").and_then(|v| v.as_str()) {
+                    tool_obj["description"] = serde_json::json!(description);
+                }
+                if let Some(commands) = table.get("commands").and_then(|v| v.as_array()) {
+                    let commands: Vec<String> = commands
+                        .iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
+                    tool_obj["commands"] = serde_json::json!(commands);
+                }
+            }
+            tools[name] = tool_obj;
+        }
+    }
+
+    let output = serde_json::json!({
+        "version": 1,
+        "project": project,
+        "tools": tools,
+    });
+    println!("{}", serde_json::to_string_pretty(&output)?);
     Ok(())
 }
 

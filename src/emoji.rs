@@ -66,3 +66,4 @@ pub const SPARKLES: &str = "✨";
 pub const CLOCK: &str = "⏱️";
 pub const LOCK: &str = "🔒";
 pub const ROCKET: &str = "🚀";
+pub const SEARCH: &str = "🔎";

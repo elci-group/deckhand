@@ -1,29 +1,15 @@
 //! Minimal, zero-dependency terminal color helpers.
 //!
-//! Replaces the `colored` crate with a small internal implementation.  Supports
-//! the ANSI color/style methods used by Deckhand, global no-color override, and
-//! method chaining (e.g. `"text".green().bold()`).
-
-use std::sync::atomic::{AtomicBool, Ordering};
-
-static NO_COLOR: AtomicBool = AtomicBool::new(false);
+//! Delegates ANSI rendering and the global no-color override to `form3`, the
+//! shared dependency-free styling crate, while keeping Deckhand's own call
+//! sites (`"text".green().bold()`, method chaining included) unchanged.
 
 /// Disable or re-enable color output globally.
-pub fn set_override(enabled: bool) {
-    NO_COLOR.store(!enabled, Ordering::Relaxed);
-}
+pub use form3::term::set_override;
 
-fn color_enabled() -> bool {
-    !NO_COLOR.load(Ordering::Relaxed)
-}
-
-fn wrap(s: &str, code: &str) -> String {
-    if color_enabled() {
-        format!("\x1b[{}m{}\x1b[0m", code, s)
-    } else {
-        s.to_string()
-    }
-}
+// Each method below calls `form3::compat::Colorize` by full path (UFCS)
+// rather than importing it, so its trait methods never come into scope here
+// and collide with this module's own `Colorize`.
 
 pub trait Colorize {
     fn red(self) -> String;
@@ -38,15 +24,15 @@ pub trait Colorize {
 }
 
 impl Colorize for &str {
-    fn red(self) -> String { wrap(self, "31") }
-    fn green(self) -> String { wrap(self, "32") }
-    fn yellow(self) -> String { wrap(self, "33") }
-    fn blue(self) -> String { wrap(self, "34") }
-    fn magenta(self) -> String { wrap(self, "35") }
-    fn cyan(self) -> String { wrap(self, "36") }
-    fn bold(self) -> String { wrap(self, "1") }
-    fn dimmed(self) -> String { wrap(self, "2") }
-    fn underline(self) -> String { wrap(self, "4") }
+    fn red(self) -> String { form3::compat::Colorize::red(self).to_string() }
+    fn green(self) -> String { form3::compat::Colorize::green(self).to_string() }
+    fn yellow(self) -> String { form3::compat::Colorize::yellow(self).to_string() }
+    fn blue(self) -> String { form3::compat::Colorize::blue(self).to_string() }
+    fn magenta(self) -> String { form3::compat::Colorize::magenta(self).to_string() }
+    fn cyan(self) -> String { form3::compat::Colorize::cyan(self).to_string() }
+    fn bold(self) -> String { form3::compat::Colorize::bold(self).to_string() }
+    fn dimmed(self) -> String { form3::compat::Colorize::dimmed(self).to_string() }
+    fn underline(self) -> String { form3::compat::Colorize::underline(self).to_string() }
 }
 
 

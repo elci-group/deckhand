@@ -58,6 +58,7 @@ pub fn run(
 
     let mut total_freed = 0u64;
     let mut failed = 0usize;
+    
     for project in &ws.projects {
         match clean_project(project, cfg, profile, dry_run, older_than, target_dir) {
             Ok(result) => {
